@@ -1,0 +1,16 @@
+{
+  "name": "Fret Cards",
+  "short_name": "Fret Cards",
+  "description": "Guitar fretboard flashcards: read staff notes, name fretted notes, find every spot of a note.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e9edf1",
+  "theme_color": "#2c5f8f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

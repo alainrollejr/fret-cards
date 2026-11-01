@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fret Cards</title>
+<meta name="description" content="Guitar fretboard flashcards: read staff notes, name fretted notes, find every spot of a note.">
+<meta name="theme-color" content="#e9edf1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fret Cards">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Music&display=swap">
+<style>
+/* Layout: one phone-sized column. Prompt card on top, answer zone below, settings tucked away underneath. */
+:root {
+  --bg: #e9edf1;
+  --card: #ffffff;
+  --ink: #14171b;
+  --muted: #5b6570;
+  --line: #c3cbd4;
+  --wood: #f6f3ee;
+  --accent: #2c5f8f;
+  --good: #1d8248;
+  --bad: #c0352d;
+  --hit: rgba(44, 95, 143, 0.12);
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", -apple-system, system-ui, sans-serif;
+  --font-music: "Noto Music", "Apple Symbols", "Segoe UI Symbol", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --card: #1a1f25; --ink: #e7ebef; --muted: #94a0ab; --line: #3a444f;
+    --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --hit: rgba(126, 174, 220, 0.16);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --card: #1a1f25; --ink: #e7ebef; --muted: #94a0ab; --line: #3a444f;
+  --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --hit: rgba(126, 174, 220, 0.16);
+  color-scheme: dark;
+}
+
+html, body { min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+.app {
+  max-width: 520px;
+  margin: 0 auto;
+  padding-block: calc(12px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.score {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.9rem;
+  display: flex;
+  gap: 12px;
+}
+.score b { color: var(--ink); font-weight: 700; }
+
+.label {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+.card {
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 1px 0 var(--line), 0 6px 18px -10px rgba(0, 0, 0, 0.35);
+}
+.card svg, #answer svg { display: block; width: 100%; height: auto; }
+#answer svg { background: var(--card); border-radius: 12px; border: 1px solid var(--line); touch-action: manipulation; }
+
+svg text { font-family: var(--font-body); }
+.s-ink { stroke: var(--ink); }
+.f-ink { fill: var(--ink); }
+.f-muted { fill: var(--muted); }
+.f-line { fill: var(--line); }
+.clef { font-family: var(--font-music); fill: var(--ink); }
+.acc { font-family: var(--font-music); fill: var(--ink); }
+svg text.notename { font-family: var(--font-display); font-weight: 700; fill: var(--accent); }
+.label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.label-row .label { margin: 0; min-width: 0; }
+#play {
+  font: 700 0.9rem var(--font-body);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#play svg { width: 12px; height: 12px; fill: currentColor; }
+#play:active { background: var(--hit); }
+.hit { fill: transparent; cursor: pointer; }
+.hit:active, .hit:hover { fill: var(--hit); }
+.pill rect { fill: var(--ink); }
+.pill text { fill: var(--card); font-weight: 700; }
+.pill.good rect { fill: var(--good); }
+.pill.bad rect { fill: var(--bad); }
+.pill.good text, .pill.bad text { fill: #fff; }
+.pill.miss rect { fill: var(--card); stroke: var(--good); stroke-width: 2; stroke-dasharray: 4 3; }
+.pill.miss text { fill: var(--good); }
+.bigname { font-family: var(--font-display); font-weight: 700; font-size: 3rem; line-height: 1; text-align: center; padding-top: 6px; }
+.sub { text-align: center; color: var(--muted); font-size: 0.92rem; padding: 6px 0 4px; }
+.pill { pointer-events: none; transform-box: fill-box; transform-origin: center; animation: pop 0.18s ease-out; }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.notes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.notes button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  min-height: 56px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  cursor: pointer;
+}
+.notes button small { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+.notes button:active { background: var(--hit); }
+.notes button.good { background: var(--good); border-color: var(--good); color: #fff; }
+.notes button.bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.notes button.good small, .notes button.bad small { color: #fff; }
+.notes button:disabled { cursor: default; }
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+.feedback { flex: 1; min-width: 0; font-size: 1rem; line-height: 1.35; }
+.feedback.good { color: var(--good); font-weight: 700; }
+.feedback.bad { color: var(--bad); }
+.feedback .hint { color: var(--muted); }
+#next {
+  font: 700 1rem var(--font-body);
+  padding: 14px 20px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--accent);
+  color: var(--card);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#next.skip { background: transparent; color: var(--muted); border: 1.5px solid var(--line); }
+#reveal svg { display: block; width: 100%; max-width: 260px; height: auto; margin: 0 auto; }
+
+button:focus-visible, summary:focus-visible, input:focus-visible + span { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+
+details {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px 14px;
+}
+summary {
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.settings { display: flex; flex-direction: column; gap: 16px; padding-block: 4px 14px; }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.group-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.seg input:checked + span { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.check { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+.check input { width: 22px; height: 22px; accent-color: var(--accent); }
+.weak { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.weak li { font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; background: var(--wood); border: 1px solid var(--line); }
+.weak-empty { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.reset { display: flex; gap: 8px; flex-wrap: wrap; }
+.reset button {
+  font: 600 0.9rem var(--font-body);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.reset button.danger { border-color: var(--bad); color: var(--bad); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pill { animation: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Fret Cards</h1>
+    <div class="score">
+      <span><b id="sc-right">0</b> / <b id="sc-total">0</b></span>
+      <span>Streak <b id="sc-streak">0</b></span>
+      <span>Best <b id="sc-best">0</b></span>
+    </div>
+  </header>
+
+  <div class="label-row">
+    <p class="label" id="prompt-label">Where do you play this note?</p>
+    <button id="play" type="button" aria-label="Play the note"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0.5 9.5 5 1 9.5z"/></svg>Play</button>
+  </div>
+  <section class="card" id="prompt"></section>
+  <section id="answer"></section>
+  <div id="reveal"></div>
+  <div class="result">
+    <div class="feedback" id="feedback" aria-live="polite"></div>
+    <button id="next" type="button">Next card</button>
+  </div>
+
+  <details id="settings">
+    <summary>Settings</summary>
+    <div class="settings">
+      <div class="group">
+        <span class="group-title">Quiz</span>
+        <div class="seg" role="radiogroup" aria-label="Quiz direction">
+          <label><input type="radio" name="mode" id="mode-staff" value="staff"><span>Staff → fretboard</span></label>
+          <label><input type="radio" name="mode" id="mode-fret" value="fret"><span>Fretboard → note</span></label>
+          <label><input type="radio" name="mode" id="mode-all" value="all"><span>Find every note</span></label>
+          <label><input type="radio" name="mode" id="mode-same" value="same"><span>Same pitch</span></label>
+          <label><input type="radio" name="mode" id="mode-mix" value="mix"><span>Mix all</span></label>
+        </div>
+      </div>
+      <div class="group">
+        <span class="group-title">Frets</span>
+        <div class="seg" role="radiogroup" aria-label="Fret range">
+          <label><input type="radio" name="frets" id="frets-4" value="4"><span>Position I (0–4)</span></label>
+          <label><input type="radio" name="frets" id="frets-5" value="5"><span>0–5</span></label>
+          <label><input type="radio" name="frets" id="frets-7" value="7"><span>0–7</span></label>
+          <label><input type="radio" name="frets" id="frets-12" value="12"><span>0–12</span></label>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="acc"> Include sharps and flats</label>
+      <div class="group">
+        <span class="group-title">Sound</span>
+        <div class="seg" role="radiogroup" aria-label="Sound">
+          <label><input type="radio" name="sound" id="sound-guitar" value="guitar"><span>Acoustic guitar</span></label>
+          <label><input type="radio" name="sound" id="sound-tone" value="tone"><span>Simple tone</span></label>
+          <label><input type="radio" name="sound" id="sound-off" value="off"><span>Off</span></label>
+        </div>
+      </div>
+      <div class="group">
+        <span class="group-title">Needs practice</span>
+        <ul class="weak" id="weak"></ul>
+      </div>
+      <div class="reset">
+        <button type="button" id="reset">Reset score and progress</button>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const KEY = 'fret-cards-v1';
+
+  // Written pitch (MIDI) of each open string, top line of the diagram = high E.
+  // Guitar is written an octave above sounding pitch: low E is written E3.
+  const OPEN = [76, 71, 67, 62, 57, 52];
+  const STRING_NAMES = ['high E', 'B', 'G', 'D', 'A', 'low E'];
+  const STRING_WIDTHS = [1, 1.3, 1.6, 2, 2.4, 2.9];
+  const LETTERS = 'CDEFGAB';
+  const NAT = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
+  const PCS = [
+    ['C'], ['C♯', 'D♭'], ['D'], ['D♯', 'E♭'], ['E'], ['F'],
+    ['F♯', 'G♭'], ['G'], ['G♯', 'A♭'], ['A'], ['A♯', 'B♭'], ['B'],
+  ];
+  const isNat = (pc) => pc in NAT;
+  const pcOf = (m) => ((m % 12) + 12) % 12;
+
+  const defaults = () => ({
+    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar' },
+    stats: { right: 0, total: 0, streak: 0, best: 0 },
+    w: {},
+  });
+  let S = defaults();
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && saved.settings) {
+      const d = defaults();
+      S = Object.assign(d, saved, { settings: Object.assign(d.settings, saved.settings) });
+    }
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  let cur = null;
+  let advanceTimer = null;
+
+  // ---------- sound ----------
+  // Guitar sounds an octave below written pitch. The guitar voice is a
+  // Karplus-Strong plucked string run through a few body-resonance filters.
+  const Sound = (() => {
+    let ctx = null, body = null;
+    const cache = new Map();
+
+    function ensure() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        // Lets iOS play even with the ring/silent switch on silent (Safari 17+).
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+        ctx = new AC();
+        const peak = (f, q, g) => {
+          const b = ctx.createBiquadFilter();
+          b.type = 'peaking'; b.frequency.value = f; b.Q.value = q; b.gain.value = g;
+          return b;
+        };
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 6000; lp.Q.value = 0.5;
+        const comp = ctx.createDynamicsCompressor();
+        const chain = [peak(105, 1.4, 6), peak(220, 1.6, 3), peak(2600, 0.9, 2.5), lp, comp];
+        chain.reduce((a, b) => (a.connect(b), b));
+        comp.connect(ctx.destination);
+        body = chain[0];
+      }
+      if (ctx.state !== 'running') ctx.resume();
+      return ctx;
+    }
+
+    function pluckBuffer(c, freq) {
+      const sr = c.sampleRate, len = Math.floor(sr * 3);
+      const buf = c.createBuffer(1, len, sr);
+      const y = buf.getChannelData(0);
+      const period = sr / freq;
+      const N = Math.floor(period - 0.5);
+      const d = period - 0.5 - N;
+      const C = (1 - d) / (1 + d); // allpass for fractional delay, keeps it in tune
+      const ring = new Float32Array(N);
+      // Excitation: softened noise with a notch from plucking near the bridge.
+      const exc = new Float32Array(N);
+      let s = 0;
+      for (let i = 0; i < N; i++) { s += 0.5 * ((Math.random() * 2 - 1) - s); exc[i] = s; }
+      const pp = Math.max(1, Math.round(N * 0.13));
+      let mean = 0;
+      for (let i = 0; i < N; i++) { ring[i] = exc[i] - (i >= pp ? exc[i - pp] : 0); mean += ring[i]; }
+      mean /= N;
+      for (let i = 0; i < N; i++) ring[i] -= mean;
+      const t60 = 2.6 * Math.pow(110 / freq, 0.4);
+      const damp = Math.pow(0.001, 1 / (t60 * freq));
+      let p = 0, last = 0, apx = 0, apy = 0, peakV = 0;
+      for (let i = 0; i < len; i++) {
+        const v = ring[p];
+        y[i] = v;
+        const lp = 0.5 * (v + last); last = v;
+        const ap = C * lp + apx - C * apy; apx = lp; apy = ap;
+        ring[p] = ap * damp;
+        p = p + 1 === N ? 0 : p + 1;
+        const a = Math.abs(v); if (a > peakV) peakV = a;
+      }
+      const fade = Math.floor(sr * 0.25);
+      const norm = peakV > 0 ? 0.7 / peakV : 1;
+      for (let i = 0; i < len; i++) y[i] *= norm * (i > len - fade ? (len - i) / fade : 1);
+      return buf;
+    }
+
+    function play(writtenMidi) {
+      const mode = S.settings.sound;
+      if (mode === 'off') return;
+      const c = ensure();
+      if (!c) return;
+      const midi = writtenMidi - 12;
+      const freq = 440 * Math.pow(2, (midi - 69) / 12);
+      const t = c.currentTime + 0.01;
+      if (mode === 'guitar') {
+        let buf = cache.get(midi);
+        if (!buf) { buf = pluckBuffer(c, freq); cache.set(midi, buf); }
+        const src = c.createBufferSource();
+        src.buffer = buf;
+        src.connect(body);
+        src.start(t);
+      } else {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'triangle';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.35, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+        o.connect(g).connect(c.destination);
+        o.start(t);
+        o.stop(t + 1.3);
+      }
+    }
+    return { play };
+  })();
+
+  function spell(midi, pref) {
+    const pc = pcOf(midi);
+    const oct = Math.floor(midi / 12) - 1;
+    let li, acc = '';
+    if (isNat(pc)) li = NAT[pc];
+    else if (pref === 'flat') { li = NAT[pc + 1]; acc = '♭'; }
+    else { li = NAT[pc - 1]; acc = '♯'; }
+    return { li, acc, oct, name: LETTERS[li] + acc };
+  }
+
+  function positionsFor(midi, max = S.settings.maxFret) {
+    const out = [];
+    OPEN.forEach((o, s) => {
+      const f = midi - o;
+      if (f >= 0 && f <= max) out.push({ s, f });
+    });
+    return out;
+  }
+  // In standard tuning, unisons across strings need at least frets 0–5.
+  const sameMax = () => Math.max(5, S.settings.maxFret);
+  const describe = ({ s, f }) => f === 0 ? `open ${STRING_NAMES[s]} string` : `${STRING_NAMES[s]} string, fret ${f}`;
+
+  function staffPool() {
+    const out = [];
+    for (let m = OPEN[5]; m <= OPEN[0] + S.settings.maxFret; m++) {
+      if (!S.settings.acc && !isNat(pcOf(m))) continue;
+      out.push('s' + m);
+    }
+    return out;
+  }
+  function fretPool() {
+    const out = [];
+    for (let s = 0; s < 6; s++) for (let f = 0; f <= S.settings.maxFret; f++) {
+      if (!S.settings.acc && !isNat(pcOf(OPEN[s] + f))) continue;
+      out.push(`f${s}-${f}`);
+    }
+    return out;
+  }
+  function allPool() {
+    const out = [];
+    for (let pc = 0; pc < 12; pc++) if (S.settings.acc || isNat(pc)) out.push('a' + pc);
+    return out;
+  }
+  function samePool() {
+    const max = sameMax(), out = [];
+    for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) {
+      const m = OPEN[s] + f;
+      if (!S.settings.acc && !isNat(pcOf(m))) continue;
+      if (positionsFor(m, max).length > 1) out.push(`u${s}-${f}`);
+    }
+    return out;
+  }
+  const weight = (k) => S.w[k] || 1;
+
+  // Missed cards get heavier and come back more often; correct answers ease them back down.
+  function pick(keys) {
+    const cand = keys.length > 1 && cur ? keys.filter((k) => k !== cur.key) : keys;
+    const total = cand.reduce((a, k) => a + weight(k), 0);
+    let r = Math.random() * total;
+    for (const k of cand) { r -= weight(k); if (r <= 0) return k; }
+    return cand[cand.length - 1];
+  }
+
+  function newCard() {
+    clearTimeout(advanceTimer);
+    const mode = S.settings.mode;
+    const types = ['staff', 'fret', 'all', 'same'];
+    const type = mode === 'mix' ? types[Math.floor(Math.random() * types.length)] : mode;
+    const pref = Math.random() < 0.5 ? 'sharp' : 'flat';
+    const pools = { staff: staffPool, fret: fretPool, all: allPool, same: samePool };
+    const key = pick(pools[type]());
+    if (type === 'staff') {
+      const midi = +key.slice(1);
+      cur = { type, key, midi, pref, sp: spell(midi, pref), result: null };
+    } else if (type === 'all') {
+      const pc = +key.slice(1);
+      const max = S.settings.maxFret;
+      const targets = [];
+      for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) if (pcOf(OPEN[s] + f) === pc) targets.push({ s, f });
+      cur = { type, key, pc, max, pref, sp: spell(pc + 60, pref), targets, found: [], wrong: [], result: null };
+    } else if (type === 'same') {
+      const [s, f] = key.slice(1).split('-').map(Number);
+      const midi = OPEN[s] + f;
+      const max = sameMax();
+      const targets = positionsFor(midi, max).filter((p) => p.s !== s);
+      cur = { type, key, s, f, midi, max, pref, sp: spell(midi, pref), targets, found: [], wrong: [], result: null };
+    } else {
+      const [s, f] = key.slice(1).split('-').map(Number);
+      const midi = OPEN[s] + f;
+      cur = { type, key, s, f, midi, pref, sp: spell(midi, pref), result: null };
+    }
+    render();
+  }
+
+  // ---------- drawing ----------
+  const GAP = 12;
+  const BOT = 112;
+  function staffSVG(sp, { corner = true, compact = false } = {}) {
+    const step = sp.oct * 7 + sp.li - 30; // 0 = bottom line (E4)
+    const y = BOT - step * GAP / 2;
+    const topSp = spell(OPEN[0] + S.settings.maxFret, 'flat');
+    const topStep = Math.max(8, topSp.oct * 7 + topSp.li - 30);
+    const yTop = BOT - topStep * GAP / 2 - 18;
+    const yBot = BOT + 7 * GAP / 2 + 14;
+    const W = compact ? 220 : 300;
+    const nx = compact ? 140 : 180;
+    let g = '';
+    for (let i = 0; i < 5; i++) {
+      const ly = BOT - i * GAP;
+      g += `<line x1="6" x2="${W - 6}" y1="${ly}" y2="${ly}" class="s-ink" stroke-width="1"/>`;
+    }
+    g += `<text class="clef" x="10" y="${BOT - GAP}" font-size="${GAP * 4.2}">𝄞</text>`;
+    const ledgers = [];
+    if (step <= -2) for (let k = -2; k >= step; k -= 2) ledgers.push(k);
+    if (step >= 10) for (let k = 10; k <= step; k += 2) ledgers.push(k);
+    for (const k of ledgers) {
+      const ly = BOT - k * GAP / 2;
+      g += `<line x1="${nx - 14}" x2="${nx + 14}" y1="${ly}" y2="${ly}" class="s-ink" stroke-width="1.2"/>`;
+    }
+    g += `<ellipse cx="${nx}" cy="${y}" rx="7.2" ry="5.2" transform="rotate(-20 ${nx} ${y})" class="f-ink"/>`;
+    if (step < 4) g += `<line x1="${nx + 6.6}" x2="${nx + 6.6}" y1="${y - 1}" y2="${y - GAP * 3.4}" class="s-ink" stroke-width="1.4"/>`;
+    else g += `<line x1="${nx - 6.6}" x2="${nx - 6.6}" y1="${y + 1}" y2="${y + GAP * 3.4}" class="s-ink" stroke-width="1.4"/>`;
+    if (sp.acc) g += `<text class="acc" x="${nx - 13}" y="${y + (sp.acc === '♭' ? 3 : 5)}" font-size="22" text-anchor="end">${sp.acc}</text>`;
+    g += `<text class="notename" x="${W - 10}" y="${yTop + 28}" text-anchor="end" font-size="${compact ? 22 : 26}">${sp.name}</text>`;
+    if (corner && !compact) {
+      const label = S.settings.maxFret === 4 ? 'I' : `0–${S.settings.maxFret}`;
+      const bw = label.length > 1 ? 40 : 24;
+      g += `<rect x="${W - 8 - bw}" y="${yBot - 30}" width="${bw}" height="22" fill="none" class="s-ink" stroke-width="1"/>`;
+      g += `<text x="${W - 8 - bw / 2}" y="${yBot - 14}" text-anchor="middle" font-size="12" class="f-ink" style="font-family:Georgia,serif">${label}</text>`;
+    }
+    return `<svg viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on treble staff">${g}</svg>`;
+  }
+
+  function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret }) {
+    const W = 340, x0 = 40, x1 = 332, fw = (x1 - x0) / max;
+    const y0 = 34, sp = 31, H = y0 + 5 * sp + 22;
+    const cx = (f) => (f === 0 ? x0 / 2 - 1 : x0 + (f - 0.5) * fw);
+    const sy = (s) => y0 + s * sp;
+    let g = '';
+    // inlay dots
+    const dot = (f, yy) => { g += `<circle cx="${cx(f)}" cy="${yy}" r="${Math.min(5, fw / 6)}" class="f-line"/>`; };
+    for (const f of [3, 5, 7, 9]) if (f <= max) dot(f, (sy(2) + sy(3)) / 2);
+    if (max >= 12) { dot(12, (sy(1) + sy(2)) / 2); dot(12, (sy(3) + sy(4)) / 2); }
+    // fret numbers
+    const fs = max > 7 ? 10 : 13;
+    for (let f = 1; f <= max; f++) g += `<text x="${cx(f)}" y="18" text-anchor="middle" font-size="${fs}" class="f-muted">${f}</text>`;
+    // frets and nut
+    for (let f = 1; f <= max; f++) {
+      const x = x0 + f * fw;
+      g += `<line x1="${x}" x2="${x}" y1="${sy(0) - 6}" y2="${sy(5) + 6}" class="s-ink" stroke-width="1.4"/>`;
+    }
+    g += `<rect x="${x0 - 5}" y="${sy(0) - 7}" width="5" height="${5 * sp + 14}" class="f-ink"/>`;
+    // strings
+    for (let s = 0; s < 6; s++) g += `<line x1="4" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
+    // tap targets
+    if (interactive) {
+      for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) {
+        const x = f === 0 ? 0 : x0 + (f - 1) * fw;
+        const w = f === 0 ? x0 - 5 : fw;
+        g += `<rect class="hit" data-s="${s}" data-f="${f}" x="${x}" y="${sy(s) - sp / 2}" width="${w}" height="${sp}"/>`;
+      }
+    }
+    // note pills, styled like the printed cards
+    for (const m of marks) {
+      const w = m.f === 0 ? 32 : Math.min(44, fw - 5);
+      const t = m.label.length > 1 && w < 30 ? 9.5 : 12.5;
+      g += `<g class="pill ${m.kind || ''}"><rect x="${cx(m.f) - w / 2}" y="${sy(m.s) - 11}" width="${w}" height="22" rx="7"/>`
+        + `<text x="${cx(m.f)}" y="${sy(m.s) + 4.3}" text-anchor="middle" font-size="${t}">${m.label}</text></g>`;
+    }
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Guitar fretboard, frets 0 to ${max}">${g}</svg>`;
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    const r = cur.result;
+    const fb = $('feedback');
+    const next = $('next');
+    $('reveal').innerHTML = '';
+    $('play').hidden = S.settings.sound === 'off';
+
+    if (cur.type === 'all' || cur.type === 'same') {
+      renderMulti();
+      renderStats();
+      return;
+    }
+    if (cur.type === 'staff') {
+      $('prompt-label').textContent = 'Where do you play this note?';
+      $('prompt').innerHTML = staffSVG(cur.sp);
+      const marks = [];
+      if (r) {
+        const valid = positionsFor(cur.midi);
+        valid.forEach((p) => marks.push({ ...p, kind: 'good', label: cur.sp.name }));
+        if (!r.ok) marks.push({ ...r.tap, kind: 'bad', label: spell(OPEN[r.tap.s] + r.tap.f, cur.pref).name });
+      }
+      $('answer').innerHTML = fretSVG({ marks, interactive: !r });
+    } else {
+      $('prompt-label').textContent = 'Which note is this?';
+      $('prompt').innerHTML = fretSVG({ marks: [{ s: cur.s, f: cur.f, kind: r ? (r.ok ? 'good' : 'bad') : '', label: r ? cur.sp.name : '?' }] });
+      const pcs = PCS.map((n, pc) => ({ n, pc })).filter((x) => S.settings.acc || isNat(x.pc));
+      const target = pcOf(cur.midi);
+      $('answer').innerHTML = `<div class="notes">${pcs.map(({ n, pc }) => {
+        let cls = '';
+        if (r && pc === target) cls = 'good';
+        else if (r && !r.ok && pc === r.pc) cls = 'bad';
+        return `<button type="button" data-pc="${pc}" class="${cls}" ${r ? 'disabled' : ''}>${n[0]}${n[1] ? `<small>${n[1]}</small>` : ''}</button>`;
+      }).join('')}</div>`;
+      if (r) $('reveal').innerHTML = staffSVG(cur.sp, { compact: true });
+    }
+
+    if (!r) {
+      fb.className = 'feedback';
+      fb.innerHTML = '';
+      next.textContent = 'Skip';
+      next.className = 'skip';
+    } else {
+      const where = cur.type === 'staff'
+        ? positionsFor(cur.midi).map(describe).join(' or ')
+        : describe(cur);
+      if (r.ok) {
+        fb.className = 'feedback good';
+        fb.innerHTML = `Right, ${cur.sp.name}. <span class="hint">${where}</span>`;
+      } else {
+        const said = cur.type === 'staff'
+          ? spell(OPEN[r.tap.s] + r.tap.f, cur.pref).name
+          : PCS[r.pc].join(' / ');
+        fb.className = 'feedback bad';
+        fb.innerHTML = `You picked ${said}. This is ${cur.sp.name}: <span class="hint">${where}</span>`;
+      }
+      next.textContent = 'Next card';
+      next.className = '';
+    }
+    renderStats();
+  }
+
+  const sameSpot = (a, b) => a.s === b.s && a.f === b.f;
+  const has = (list, p) => list.some((q) => sameSpot(q, p));
+
+  function renderMulti() {
+    const r = cur.result;
+    const name = cur.sp.name;
+    const n = cur.targets.length;
+    const nameAt = (p) => spell(OPEN[p.s] + p.f, cur.pref).name;
+    if (cur.type === 'all') {
+      $('prompt-label').textContent = `Tap every ${name}`;
+      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">${n} spots on frets 0–${cur.max}, all strings and octaves</div>`;
+    } else {
+      $('prompt-label').textContent = 'Tap the same pitch on other strings';
+      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">Marked on the ${describe(cur)}. Find ${n} more ${n === 1 ? 'spot' : 'spots'} with this exact pitch on frets 0–${cur.max}</div>`;
+    }
+    const marks = [];
+    if (cur.type === 'same') marks.push({ s: cur.s, f: cur.f, kind: '', label: name });
+    cur.found.forEach((p) => marks.push({ ...p, kind: 'good', label: name }));
+    cur.wrong.forEach((p) => marks.push({ ...p, kind: 'bad', label: nameAt(p) }));
+    if (r) cur.targets.filter((p) => !has(cur.found, p)).forEach((p) => marks.push({ ...p, kind: 'miss', label: name }));
+    $('answer').innerHTML = fretSVG({ marks, interactive: !r, max: cur.max });
+
+    const fb = $('feedback'), next = $('next');
+    const wrongTxt = cur.wrong.length ? `, ${cur.wrong.length} wrong ${cur.wrong.length === 1 ? 'tap' : 'taps'}` : '';
+    if (!r) {
+      fb.className = 'feedback';
+      fb.innerHTML = `<b>${cur.found.length} of ${n}</b> found${wrongTxt}`;
+      next.textContent = 'Show answer';
+      next.className = 'skip';
+    } else {
+      const missed = n - cur.found.length;
+      if (r.ok) {
+        fb.className = 'feedback good';
+        fb.innerHTML = `All ${n} found, no wrong taps.`;
+      } else {
+        fb.className = 'feedback bad';
+        fb.innerHTML = `${cur.found.length} of ${n} found${wrongTxt}.`
+          + (missed ? ` <span class="hint">Dashed spots are the ones you missed.</span>` : '');
+      }
+      next.textContent = 'Next card';
+      next.className = '';
+    }
+  }
+
+  function tapMulti(p) {
+    if (cur.type === 'same' && sameSpot(p, cur)) return;
+    if (has(cur.found, p) || has(cur.wrong, p)) return;
+    const m = OPEN[p.s] + p.f;
+    const match = cur.type === 'all' ? pcOf(m) === cur.pc : m === cur.midi;
+    (match ? cur.found : cur.wrong).push(p);
+    if (cur.found.length === cur.targets.length) answer(cur.wrong.length === 0, {});
+    else render();
+  }
+
+  function renderStats() {
+    $('sc-right').textContent = S.stats.right;
+    $('sc-total').textContent = S.stats.total;
+    $('sc-streak').textContent = S.stats.streak;
+    $('sc-best').textContent = S.stats.best;
+    const weak = Object.entries(S.w).filter(([, v]) => v > 1.5).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    $('weak').innerHTML = weak.length
+      ? weak.map(([k]) => `<li>${labelFor(k)}</li>`).join('')
+      : '<li class="weak-empty">Notes you miss will show up here.</li>';
+  }
+  function labelFor(k) {
+    if (k[0] === 'a') return `Every ${PCS[+k.slice(1)].join('/')}`;
+    if (k[0] === 'u') {
+      const [s, f] = k.slice(1).split('-').map(Number);
+      return `Same as ${describe({ s, f })}`;
+    }
+    if (k[0] === 's') {
+      const m = +k.slice(1);
+      return `${PCS[pcOf(m)].join('/')} (${positionsFor(m).map(describe).join(' or ') || 'out of range'})`;
+    }
+    const [s, f] = k.slice(1).split('-').map(Number);
+    return `${describe({ s, f })}: ${PCS[pcOf(OPEN[s] + f)].join('/')}`;
+  }
+
+  function answer(ok, extra) {
+    if (cur.result) return;
+    cur.result = { ok, ...extra };
+    S.stats.total++;
+    if (ok) {
+      S.stats.right++;
+      S.stats.streak++;
+      S.stats.best = Math.max(S.stats.best, S.stats.streak);
+      S.w[cur.key] = Math.max(1, weight(cur.key) * 0.6);
+      if (S.w[cur.key] <= 1.05) delete S.w[cur.key];
+    } else {
+      S.stats.streak = 0;
+      S.w[cur.key] = Math.min(12, weight(cur.key) * 2 + 1);
+    }
+    save();
+    render();
+    if (ok) advanceTimer = setTimeout(newCard, 1100);
+  }
+
+  // ---------- events ----------
+  $('answer').addEventListener('click', (e) => {
+    if (!cur || cur.result) return;
+    const hit = e.target.closest('.hit');
+    if (hit) {
+      const tap = { s: +hit.dataset.s, f: +hit.dataset.f };
+      Sound.play(OPEN[tap.s] + tap.f);
+      if (cur.type === 'all' || cur.type === 'same') { tapMulti(tap); return; }
+      answer(OPEN[tap.s] + tap.f === cur.midi, { tap });
+      return;
+    }
+    const btn = e.target.closest('button[data-pc]');
+    if (btn) {
+      const pc = +btn.dataset.pc;
+      Sound.play(cur.midi);
+      answer(pc === pcOf(cur.midi), { pc });
+    }
+  });
+  $('next').addEventListener('click', () => {
+    if ((cur.type === 'all' || cur.type === 'same') && !cur.result) answer(false, {});
+    else newCard();
+  });
+
+  function syncSettingsUI() {
+    $('mode-' + S.settings.mode).checked = true;
+    $('frets-' + S.settings.maxFret).checked = true;
+    $('acc').checked = S.settings.acc;
+    $('sound-' + S.settings.sound).checked = true;
+  }
+  document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.mode = el.value; save(); newCard();
+  }));
+  document.querySelectorAll('input[name="frets"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.maxFret = +el.value; save(); newCard();
+  }));
+  $('acc').addEventListener('change', (e) => { S.settings.acc = e.target.checked; save(); newCard(); });
+  document.querySelectorAll('input[name="sound"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.sound = el.value; save(); render();
+    if (cur) Sound.play(cur.type === 'all' ? Math.min(...cur.targets.map((t) => OPEN[t.s] + t.f)) : cur.midi);
+  }));
+  $('play').addEventListener('click', () => {
+    if (!cur) return;
+    Sound.play(cur.type === 'all' ? Math.min(...cur.targets.map((t) => OPEN[t.s] + t.f)) : cur.midi);
+  });
+
+  const resetBtn = $('reset');
+  let armed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      resetBtn.textContent = 'Tap again to reset';
+      resetBtn.classList.add('danger');
+      setTimeout(() => { armed = false; resetBtn.textContent = 'Reset score and progress'; resetBtn.classList.remove('danger'); }, 3000);
+      return;
+    }
+    armed = false;
+    S.stats = defaults().stats;
+    S.w = {};
+    save();
+    resetBtn.textContent = 'Reset score and progress';
+    resetBtn.classList.remove('danger');
+    renderStats();
+  });
+
+  syncSettingsUI();
+  newCard();
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+
+</body>
+</html>
