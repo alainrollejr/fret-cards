@@ -9,7 +9,7 @@ Quiz modes:
 - **Same pitch**: tap every other spot with the exact same pitch.
 - **Mix all**
 
-Settings: fret range (Position I / 0–5 / 0–7 / 0–12), sharps and flats, sound (synthesized acoustic guitar, simple tone, or off).
+Settings: instrument (guitar or 4-string bass guitar), fret range (Position I / 0–5 / 0–7 / 0–12), sharps and flats, sound (synthesized acoustic guitar, simple tone, or off).
 Missed cards come back more often. Works offline once opened.
 
 ## Install on iPhone

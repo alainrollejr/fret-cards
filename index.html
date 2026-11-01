@@ -291,6 +291,13 @@ summary {
           <label><input type="radio" name="frets" id="frets-12" value="12"><span>0–12</span></label>
         </div>
       </div>
+      <div class="group">
+        <span class="group-title">Instrument</span>
+        <div class="seg" role="radiogroup" aria-label="Instrument">
+          <label><input type="radio" name="instrument" id="instrument-guitar" value="guitar"><span>Guitar</span></label>
+          <label><input type="radio" name="instrument" id="instrument-bass" value="bass"><span>Bass guitar</span></label>
+        </div>
+      </div>
       <label class="check"><input type="checkbox" id="acc"> Include sharps and flats</label>
       <div class="group">
         <span class="group-title">Sound</span>
@@ -318,9 +325,14 @@ summary {
 
   // Written pitch (MIDI) of each open string, top line of the diagram = high E.
   // Guitar is written an octave above sounding pitch: low E is written E3.
-  const OPEN = [76, 71, 67, 62, 57, 52];
-  const STRING_NAMES = ['high E', 'B', 'G', 'D', 'A', 'low E'];
-  const STRING_WIDTHS = [1, 1.3, 1.6, 2, 2.4, 2.9];
+  // Both instruments are written an octave above sounding pitch: guitar low E is
+  // written E3 (treble clef), bass low E is written E2 (bass clef).
+  // String 0 is the top line of the diagram (highest string).
+  const INSTRUMENTS = {
+    guitar: { open: [76, 71, 67, 62, 57, 52], names: ['high E', 'B', 'G', 'D', 'A', 'low E'], widths: [1, 1.3, 1.6, 2, 2.4, 2.9], clef: 'treble' },
+    bass: { open: [55, 50, 45, 40], names: ['G', 'D', 'A', 'E'], widths: [1.8, 2.4, 3, 3.6], clef: 'bass' },
+  };
+  let OPEN, STRING_NAMES, STRING_WIDTHS, CLEF;
   const LETTERS = 'CDEFGAB';
   const NAT = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
   const PCS = [
@@ -331,7 +343,7 @@ summary {
   const pcOf = (m) => ((m % 12) + 12) % 12;
 
   const defaults = () => ({
-    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar' },
+    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar', instrument: 'guitar' },
     stats: { right: 0, total: 0, streak: 0, best: 0 },
     w: {},
   });
@@ -344,6 +356,12 @@ summary {
     }
   } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  function applyInstrument() {
+    const I = INSTRUMENTS[S.settings.instrument] || INSTRUMENTS.guitar;
+    OPEN = I.open; STRING_NAMES = I.names; STRING_WIDTHS = I.widths; CLEF = I.clef;
+  }
+  applyInstrument();
 
   let cur = null;
   let advanceTimer = null;
@@ -470,15 +488,16 @@ summary {
 
   function staffPool() {
     const out = [];
-    for (let m = OPEN[5]; m <= OPEN[0] + S.settings.maxFret; m++) {
+    for (let m = OPEN[OPEN.length - 1]; m <= OPEN[0] + S.settings.maxFret; m++) {
       if (!S.settings.acc && !isNat(pcOf(m))) continue;
+      if (!positionsFor(m).length) continue;
       out.push('s' + m);
     }
     return out;
   }
   function fretPool() {
     const out = [];
-    for (let s = 0; s < 6; s++) for (let f = 0; f <= S.settings.maxFret; f++) {
+    for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= S.settings.maxFret; f++) {
       if (!S.settings.acc && !isNat(pcOf(OPEN[s] + f))) continue;
       out.push(`f${s}-${f}`);
     }
@@ -491,14 +510,15 @@ summary {
   }
   function samePool() {
     const max = sameMax(), out = [];
-    for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) {
+    for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= max; f++) {
       const m = OPEN[s] + f;
       if (!S.settings.acc && !isNat(pcOf(m))) continue;
       if (positionsFor(m, max).length > 1) out.push(`u${s}-${f}`);
     }
     return out;
   }
-  const weight = (k) => S.w[k] || 1;
+  const wkey = (k) => `${S.settings.instrument}|${k}`;
+  const weight = (k) => S.w[wkey(k)] || 1;
 
   // Missed cards get heavier and come back more often; correct answers ease them back down.
   function pick(keys) {
@@ -524,7 +544,7 @@ summary {
       const pc = +key.slice(1);
       const max = S.settings.maxFret;
       const targets = [];
-      for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) if (pcOf(OPEN[s] + f) === pc) targets.push({ s, f });
+      for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= max; f++) if (pcOf(OPEN[s] + f) === pc) targets.push({ s, f });
       cur = { type, key, pc, max, pref, sp: spell(pc + 60, pref), targets, found: [], wrong: [], result: null };
     } else if (type === 'same') {
       const [s, f] = key.slice(1).split('-').map(Number);
@@ -544,12 +564,15 @@ summary {
   const GAP = 12;
   const BOT = 112;
   function staffSVG(sp, { corner = true, compact = false } = {}) {
-    const step = sp.oct * 7 + sp.li - 30; // 0 = bottom line (E4)
+    const ref = CLEF === 'bass' ? 18 : 30; // diatonic index of the bottom line: G2 or E4
+    const stepOf = (x) => x.oct * 7 + x.li - ref;
+    const step = stepOf(sp); // 0 = bottom line
     const y = BOT - step * GAP / 2;
     const topSp = spell(OPEN[0] + S.settings.maxFret, 'flat');
-    const topStep = Math.max(8, topSp.oct * 7 + topSp.li - 30);
+    const topStep = Math.max(8, stepOf(topSp));
     const yTop = BOT - topStep * GAP / 2 - 18;
-    const yBot = BOT + 7 * GAP / 2 + 14;
+    const lowStep = stepOf(spell(OPEN[OPEN.length - 1], 'sharp'));
+    const yBot = BOT + Math.max(7, -lowStep) * GAP / 2 + 14;
     const W = compact ? 220 : 300;
     const nx = compact ? 140 : 180;
     let g = '';
@@ -557,7 +580,9 @@ summary {
       const ly = BOT - i * GAP;
       g += `<line x1="6" x2="${W - 6}" y1="${ly}" y2="${ly}" class="s-ink" stroke-width="1"/>`;
     }
-    g += `<text class="clef" x="10" y="${BOT - GAP}" font-size="${GAP * 4.2}">𝄞</text>`;
+    g += CLEF === 'bass'
+      ? `<text class="clef" x="10" y="${BOT - 0.75 * GAP}" font-size="${GAP * 4.2}">𝄢</text>`
+      : `<text class="clef" x="10" y="${BOT - GAP}" font-size="${GAP * 4.2}">𝄞</text>`;
     const ledgers = [];
     if (step <= -2) for (let k = -2; k >= step; k -= 2) ledgers.push(k);
     if (step >= 10) for (let k = 10; k <= step; k += 2) ledgers.push(k);
@@ -576,33 +601,35 @@ summary {
       g += `<rect x="${W - 8 - bw}" y="${yBot - 30}" width="${bw}" height="22" fill="none" class="s-ink" stroke-width="1"/>`;
       g += `<text x="${W - 8 - bw / 2}" y="${yBot - 14}" text-anchor="middle" font-size="12" class="f-ink" style="font-family:Georgia,serif">${label}</text>`;
     }
-    return `<svg viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on treble staff">${g}</svg>`;
+    return `<svg viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
   }
 
   function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret }) {
     const W = 340, x0 = 40, x1 = 332, fw = (x1 - x0) / max;
-    const y0 = 34, sp = 31, H = y0 + 5 * sp + 22;
+    const n = OPEN.length, last = n - 1;
+    const y0 = 34, sp = 31, H = y0 + last * sp + 22;
     const cx = (f) => (f === 0 ? x0 / 2 - 1 : x0 + (f - 0.5) * fw);
     const sy = (s) => y0 + s * sp;
     let g = '';
     // inlay dots
     const dot = (f, yy) => { g += `<circle cx="${cx(f)}" cy="${yy}" r="${Math.min(5, fw / 6)}" class="f-line"/>`; };
-    for (const f of [3, 5, 7, 9]) if (f <= max) dot(f, (sy(2) + sy(3)) / 2);
-    if (max >= 12) { dot(12, (sy(1) + sy(2)) / 2); dot(12, (sy(3) + sy(4)) / 2); }
+    const mid = sy(last / 2);
+    for (const f of [3, 5, 7, 9]) if (f <= max) dot(f, mid);
+    if (max >= 12) { dot(12, mid - sp); dot(12, mid + sp); }
     // fret numbers
     const fs = max > 7 ? 10 : 13;
     for (let f = 1; f <= max; f++) g += `<text x="${cx(f)}" y="18" text-anchor="middle" font-size="${fs}" class="f-muted">${f}</text>`;
     // frets and nut
     for (let f = 1; f <= max; f++) {
       const x = x0 + f * fw;
-      g += `<line x1="${x}" x2="${x}" y1="${sy(0) - 6}" y2="${sy(5) + 6}" class="s-ink" stroke-width="1.4"/>`;
+      g += `<line x1="${x}" x2="${x}" y1="${sy(0) - 6}" y2="${sy(last) + 6}" class="s-ink" stroke-width="1.4"/>`;
     }
-    g += `<rect x="${x0 - 5}" y="${sy(0) - 7}" width="5" height="${5 * sp + 14}" class="f-ink"/>`;
+    g += `<rect x="${x0 - 5}" y="${sy(0) - 7}" width="5" height="${last * sp + 14}" class="f-ink"/>`;
     // strings
-    for (let s = 0; s < 6; s++) g += `<line x1="4" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
+    for (let s = 0; s < n; s++) g += `<line x1="4" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
     // tap targets
     if (interactive) {
-      for (let s = 0; s < 6; s++) for (let f = 0; f <= max; f++) {
+      for (let s = 0; s < n; s++) for (let f = 0; f <= max; f++) {
         const x = f === 0 ? 0 : x0 + (f - 1) * fw;
         const w = f === 0 ? x0 - 5 : fw;
         g += `<rect class="hit" data-s="${s}" data-f="${f}" x="${x}" y="${sy(s) - sp / 2}" width="${w}" height="${sp}"/>`;
@@ -615,7 +642,7 @@ summary {
       g += `<g class="pill ${m.kind || ''}"><rect x="${cx(m.f) - w / 2}" y="${sy(m.s) - 11}" width="${w}" height="22" rx="7"/>`
         + `<text x="${cx(m.f)}" y="${sy(m.s) + 4.3}" text-anchor="middle" font-size="${t}">${m.label}</text></g>`;
     }
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Guitar fretboard, frets 0 to ${max}">${g}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${S.settings.instrument === 'bass' ? 'Bass' : 'Guitar'} fretboard, frets 0 to ${max}">${g}</svg>`;
   }
 
   // ---------- rendering ----------
@@ -739,7 +766,8 @@ summary {
     $('sc-total').textContent = S.stats.total;
     $('sc-streak').textContent = S.stats.streak;
     $('sc-best').textContent = S.stats.best;
-    const weak = Object.entries(S.w).filter(([, v]) => v > 1.5).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const prefix = `${S.settings.instrument}|`;
+    const weak = Object.entries(S.w).filter(([k, v]) => k.startsWith(prefix) && v > 1.5).map(([k, v]) => [k.slice(prefix.length), v]).sort((a, b) => b[1] - a[1]).slice(0, 8);
     $('weak').innerHTML = weak.length
       ? weak.map(([k]) => `<li>${labelFor(k)}</li>`).join('')
       : '<li class="weak-empty">Notes you miss will show up here.</li>';
@@ -766,11 +794,11 @@ summary {
       S.stats.right++;
       S.stats.streak++;
       S.stats.best = Math.max(S.stats.best, S.stats.streak);
-      S.w[cur.key] = Math.max(1, weight(cur.key) * 0.6);
-      if (S.w[cur.key] <= 1.05) delete S.w[cur.key];
+      S.w[wkey(cur.key)] = Math.max(1, weight(cur.key) * 0.6);
+      if (S.w[wkey(cur.key)] <= 1.05) delete S.w[wkey(cur.key)];
     } else {
       S.stats.streak = 0;
-      S.w[cur.key] = Math.min(12, weight(cur.key) * 2 + 1);
+      S.w[wkey(cur.key)] = Math.min(12, weight(cur.key) * 2 + 1);
     }
     save();
     render();
@@ -805,7 +833,11 @@ summary {
     $('frets-' + S.settings.maxFret).checked = true;
     $('acc').checked = S.settings.acc;
     $('sound-' + S.settings.sound).checked = true;
+    $('instrument-' + S.settings.instrument).checked = true;
   }
+  document.querySelectorAll('input[name="instrument"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.instrument = el.value; applyInstrument(); save(); cur = null; newCard();
+  }));
   document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener('change', () => {
     S.settings.mode = el.value; save(); newCard();
   }));
