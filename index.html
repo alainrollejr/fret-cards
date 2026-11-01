@@ -329,10 +329,10 @@ summary {
   // written E3 (treble clef), bass low E is written E2 (bass clef).
   // String 0 is the top line of the diagram (highest string).
   const INSTRUMENTS = {
-    guitar: { open: [76, 71, 67, 62, 57, 52], names: ['high E', 'B', 'G', 'D', 'A', 'low E'], widths: [1, 1.3, 1.6, 2, 2.4, 2.9], clef: 'treble' },
-    bass: { open: [55, 50, 45, 40], names: ['G', 'D', 'A', 'E'], widths: [1.8, 2.4, 3, 3.6], clef: 'bass' },
+    guitar: { open: [76, 71, 67, 62, 57, 52], names: ['high E', 'B', 'G', 'D', 'A', 'low E'], tab: ['e', 'B', 'G', 'D', 'A', 'E'], widths: [1, 1.3, 1.6, 2, 2.4, 2.9], clef: 'treble' },
+    bass: { open: [55, 50, 45, 40], names: ['G', 'D', 'A', 'E'], tab: ['G', 'D', 'A', 'E'], widths: [1.8, 2.4, 3, 3.6], clef: 'bass' },
   };
-  let OPEN, STRING_NAMES, STRING_WIDTHS, CLEF;
+  let OPEN, STRING_NAMES, TAB_NAMES, STRING_WIDTHS, CLEF;
   const LETTERS = 'CDEFGAB';
   const NAT = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
   const PCS = [
@@ -359,7 +359,7 @@ summary {
 
   function applyInstrument() {
     const I = INSTRUMENTS[S.settings.instrument] || INSTRUMENTS.guitar;
-    OPEN = I.open; STRING_NAMES = I.names; STRING_WIDTHS = I.widths; CLEF = I.clef;
+    OPEN = I.open; STRING_NAMES = I.names; TAB_NAMES = I.tab; STRING_WIDTHS = I.widths; CLEF = I.clef;
   }
   applyInstrument();
 
@@ -605,10 +605,11 @@ summary {
   }
 
   function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret }) {
-    const W = 340, x0 = 40, x1 = 332, fw = (x1 - x0) / max;
+    const W = 340, xs = 16, x0 = 56, x1 = 332, // tab labels sit left of xs
+      fw = (x1 - x0) / max;
     const n = OPEN.length, last = n - 1;
     const y0 = 34, sp = 31, H = y0 + last * sp + 22;
-    const cx = (f) => (f === 0 ? x0 / 2 - 1 : x0 + (f - 0.5) * fw);
+    const cx = (f) => (f === 0 ? (xs + x0) / 2 - 1 : x0 + (f - 0.5) * fw);
     const sy = (s) => y0 + s * sp;
     let g = '';
     // inlay dots
@@ -626,7 +627,10 @@ summary {
     }
     g += `<rect x="${x0 - 5}" y="${sy(0) - 7}" width="5" height="${last * sp + 14}" class="f-ink"/>`;
     // strings
-    for (let s = 0; s < n; s++) g += `<line x1="4" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
+    for (let s = 0; s < n; s++) {
+      g += `<line x1="${xs}" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
+      g += `<text x="${xs / 2}" y="${sy(s) + 4.2}" text-anchor="middle" font-size="12" font-weight="600" class="f-muted">${TAB_NAMES[s]}</text>`;
+    }
     // tap targets
     if (interactive) {
       for (let s = 0; s < n; s++) for (let f = 0; f <= max; f++) {
@@ -694,6 +698,11 @@ summary {
       if (r.ok) {
         fb.className = 'feedback good';
         fb.innerHTML = `Right, ${cur.sp.name}. <span class="hint">${where}</span>`;
+      } else if (cur.type === 'staff' && (OPEN[r.tap.s] + r.tap.f - cur.midi) % 12 === 0) {
+        const diff = OPEN[r.tap.s] + r.tap.f - cur.midi;
+        const oct = Math.abs(diff) / 12;
+        fb.className = 'feedback bad';
+        fb.innerHTML = `Right note, wrong octave: that ${cur.sp.name} is ${oct === 1 ? 'an octave' : oct + ' octaves'} ${diff > 0 ? 'higher' : 'lower'}. <span class="hint">This one: ${where}</span>`;
       } else {
         const said = cur.type === 'staff'
           ? spell(OPEN[r.tap.s] + r.tap.f, cur.pref).name

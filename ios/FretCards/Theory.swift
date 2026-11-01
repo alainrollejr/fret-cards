@@ -20,6 +20,8 @@ enum Instrument: String, CaseIterable, Codable, Identifiable {
     /// sounding pitch: guitar low E is written E3, bass low E is written E2.
     var open: [Int] { self == .guitar ? [76, 71, 67, 62, 57, 52] : [55, 50, 45, 40] }
     var stringNames: [String] { self == .guitar ? ["high E", "B", "G", "D", "A", "low E"] : ["G", "D", "A", "E"] }
+    /// Tab-style labels, highest string first.
+    var tabNames: [String] { self == .guitar ? ["e", "B", "G", "D", "A", "E"] : ["G", "D", "A", "E"] }
     var stringWidths: [CGFloat] { self == .guitar ? [1, 1.3, 1.6, 2, 2.4, 2.9] : [1.8, 2.4, 3, 3.6] }
     var clef: Clef { self == .guitar ? .treble : .bass }
 }

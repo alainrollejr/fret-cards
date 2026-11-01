@@ -14,6 +14,13 @@ final class SoundEngine {
     private var cache: [String: AVAudioPCMBuffer] = [:]
 
     private init() {
+        // Set the session up before touching the engine: activating it later changes the
+        // hardware format, and iOS then stops the engine under us.
+        // .playback keeps sound on when the ring/silent switch is set to silent.
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, options: [.mixWithOthers])
+        try? session.setActive(true)
+
         let bands: [(AVAudioUnitEQFilterType, Float, Float, Float)] = [
             (.parametric, 105, 1.0, 6), // body resonance
             (.parametric, 220, 0.9, 3),
@@ -27,27 +34,30 @@ final class SoundEngine {
             band.gain = spec.3
             band.bypass = false
         }
+        // The EQ has a single input bus, so the players meet in a mixer first.
+        let voices = AVAudioMixerNode()
+        engine.attach(voices)
         engine.attach(eq)
         for _ in 0..<6 {
             let p = AVAudioPlayerNode()
             engine.attach(p)
-            engine.connect(p, to: eq, format: format)
+            engine.connect(p, to: voices, fromBus: 0, toBus: voices.nextAvailableInputBus, format: format)
             players.append(p)
         }
+        engine.connect(voices, to: eq, format: format)
         engine.connect(eq, to: engine.mainMixerNode, format: format)
+        engine.prepare()
     }
 
     private func start() -> Bool {
         if engine.isRunning { return true }
         do {
-            // .playback keeps sound on when the ring/silent switch is set to silent.
-            try AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             try engine.start()
-            return true
         } catch {
             return false
         }
+        return engine.isRunning
     }
 
     func play(writtenMidi: Int, mode: SoundMode) {
@@ -66,6 +76,8 @@ final class SoundEngine {
         nextPlayer = (nextPlayer + 1) % players.count
         player.stop()
         player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+        // play() raises an uncatchable exception if the engine stopped in the meantime.
+        guard engine.isRunning else { return }
         player.play()
     }
 

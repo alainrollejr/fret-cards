@@ -338,21 +338,34 @@ final class QuizStore: ObservableObject {
             let n = card.targets.count
             let wrong = card.wrong.count
             let wrongText = wrong > 0 ? ", \(wrong) wrong \(wrong == 1 ? "tap" : "taps")" : ""
-            guard let r = card.result else { return ("\(card.found.count) of \(n) found\(wrongText)", "", .neutral) }
+            guard let r = card.result else {
+                return ("\(card.found.count) of \(n) found\(wrongText)", card.found.isEmpty && wrong == 0 ? Self.tapHint : "", .neutral)
+            }
             if r.ok { return ("All \(n) found, no wrong taps.", "", .good) }
             let missed = n - card.found.count
             return ("\(card.found.count) of \(n) found\(wrongText).", missed > 0 ? "Dashed spots are the ones you missed." : "", .bad)
         }
-        guard let r = card.result else { return ("", "", .neutral) }
+        guard let r = card.result else { return ("", card.type == .staff ? Self.tapHint : "", .neutral) }
         let whereText = card.type == .staff
             ? Self.positions(card.midi, max: card.boardMax, instrument: instrument).map(describe).joined(separator: " or ")
             : describe(card.spot!)
         if r.ok { return ("Right, \(name).", whereText, .good) }
+        if card.type == .staff, let tap = r.tap {
+            let diff = instrument.open[tap.s] + tap.f - card.midi
+            if diff != 0, diff % 12 == 0 {
+                let octaves = abs(diff) / 12
+                let amount = octaves == 1 ? "an octave" : "\(octaves) octaves"
+                return ("Right note, wrong octave: that \(name) is \(amount) \(diff > 0 ? "higher" : "lower").",
+                        "This one: \(whereText)", .bad)
+            }
+        }
         let said = card.type == .staff
             ? r.tap.map { self.name(at: $0) } ?? "?"
             : r.pickedPC.map { Theory.pitchClassNames[$0].joined(separator: " / ") } ?? "?"
         return ("You picked \(said). This is \(name).", whereText, .bad)
     }
+
+    static let tapHint = "Tap a string between two fret wires. Left of the nut is the open string."
 
     var nextTitle: String {
         if card.result != nil { return "Next card" }

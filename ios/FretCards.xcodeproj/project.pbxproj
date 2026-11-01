@@ -31,7 +31,7 @@
 		657479D9754CA86654AF4D93 /* NotoMusic-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoMusic-Regular.ttf"; sourceTree = "<group>"; };
 		667FFC54494C7942CE0D50B6 /* StaffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffView.swift; sourceTree = "<group>"; };
 		6B36B81290008B1DC65CFAB7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		70A22ABE1BCC9677CEA18FEA /* FretCards.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FretCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		70A22ABE1BCC9677CEA18FEA /* FretCards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FretCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0F05C2679E3F2EA378D5F8C /* NotoMusic-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoMusic-OFL.txt"; sourceTree = "<group>"; };
 		D177192582494B594D9D9595 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F7ACCC0DA73FC91A4E673892 /* SoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEngine.swift; sourceTree = "<group>"; };
@@ -240,6 +240,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LH2HGCF7LX;
 				INFOPLIST_FILE = FretCards/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -260,6 +261,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LH2HGCF7LX;
 				INFOPLIST_FILE = FretCards/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

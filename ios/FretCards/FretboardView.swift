@@ -21,13 +21,14 @@ struct FretboardView: View {
         let n: Int
         let maxFret: Int
         let width: CGFloat = 340
-        let x0: CGFloat = 40 // nut
+        let xs: CGFloat = 16 // strings start here; tab labels sit left of it
+        let x0: CGFloat = 56 // nut
         let x1: CGFloat = 332
         let y0: CGFloat = 34
         let sp: CGFloat = 31
         var fw: CGFloat { (x1 - x0) / CGFloat(maxFret) }
         var height: CGFloat { y0 + CGFloat(n - 1) * sp + 22 }
-        func cx(_ f: Int) -> CGFloat { f == 0 ? x0 / 2 - 1 : x0 + (CGFloat(f) - 0.5) * fw }
+        func cx(_ f: Int) -> CGFloat { f == 0 ? (xs + x0) / 2 - 1 : x0 + (CGFloat(f) - 0.5) * fw }
         func sy(_ s: Int) -> CGFloat { y0 + CGFloat(s) * sp }
 
         func spot(at p: CGPoint) -> Spot? {
@@ -77,7 +78,9 @@ struct FretboardView: View {
             }
             c.fill(Path(CGRect(x: g.x0 - 5, y: g.sy(0) - 7, width: 5, height: CGFloat(last) * g.sp + 14)), with: ink)
             for s in 0..<g.n {
-                line(CGPoint(x: 4, y: g.sy(s)), CGPoint(x: g.x1, y: g.sy(s)), instrument.stringWidths[s])
+                line(CGPoint(x: g.xs, y: g.sy(s)), CGPoint(x: g.x1, y: g.sy(s)), instrument.stringWidths[s])
+                c.draw(Text(instrument.tabNames[s]).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary),
+                       at: CGPoint(x: g.xs / 2, y: g.sy(s)), anchor: .center)
             }
 
             // Note pills, styled like the printed cards
