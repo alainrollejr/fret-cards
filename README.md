@@ -16,3 +16,7 @@ Missed cards come back more often. Works offline once opened.
 Open the site in Safari → Share → **Add to Home Screen**.
 
 Single static page (`index.html`), no build step.
+
+## Native iPhone app
+`ios/` holds a SwiftUI version of the same app (`ios/FretCards.xcodeproj`, generated from `ios/project.yml` with XcodeGen).
+Open the project in Xcode, choose your team under Signing & Capabilities, select your iPhone and press Run.

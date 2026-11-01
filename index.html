@@ -570,7 +570,7 @@ summary {
     const y = BOT - step * GAP / 2;
     const topSp = spell(OPEN[0] + S.settings.maxFret, 'flat');
     const topStep = Math.max(8, stepOf(topSp));
-    const yTop = BOT - topStep * GAP / 2 - 18;
+    const yTop = BOT - topStep * GAP / 2 - 36; // room for the note name
     const lowStep = stepOf(spell(OPEN[OPEN.length - 1], 'sharp'));
     const yBot = BOT + Math.max(7, -lowStep) * GAP / 2 + 14;
     const W = compact ? 220 : 300;
