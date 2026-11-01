@@ -5,6 +5,7 @@ struct FretMark {
     let spot: Spot
     let kind: Kind
     let label: String
+    var round = false // finger-number dot on a chord diagram
 }
 
 /// Horizontal fretboard like the printed cards: top line is the highest string,
@@ -13,6 +14,9 @@ struct FretboardView: View {
     let instrument: Instrument
     let maxFret: Int
     var marks: [FretMark] = []
+    var chord: Voicing?
+    var chordKind: FretMark.Kind = .question
+    var showFingers = true
     var onTap: ((Spot) -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -83,13 +87,10 @@ struct FretboardView: View {
                        at: CGPoint(x: g.xs / 2, y: g.sy(s)), anchor: .center)
             }
 
-            // Note pills, styled like the printed cards
-            for m in marks {
-                let w: CGFloat = m.spot.f == 0 ? 32 : min(44, g.fw - 5)
-                let rect = CGRect(x: g.cx(m.spot.f) - w / 2, y: g.sy(m.spot.s) - 11, width: w, height: 22)
-                let pill = Path(roundedRect: rect, cornerRadius: 7)
+            func pill(_ rect: CGRect, radius: CGFloat, kind: FretMark.Kind, label: String, size: CGFloat) {
+                let pill = Path(roundedRect: rect, cornerRadius: radius)
                 let textColor: Color
-                switch m.kind {
+                switch kind {
                 case .question:
                     c.fill(pill, with: ink)
                     textColor = paper
@@ -104,9 +105,45 @@ struct FretboardView: View {
                     c.stroke(pill, with: .color(Theme.good), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
                     textColor = Theme.good
                 }
-                let size: CGFloat = m.label.count > 1 && w < 30 ? 9.5 : 12.5
-                c.draw(Text(m.label).font(.system(size: size, weight: .bold)).foregroundColor(textColor),
+                c.draw(Text(label).font(.system(size: size, weight: .bold)).foregroundColor(textColor),
                        at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+            }
+
+            // Chord shape: open/muted signs left of the nut, a barre, finger numbers
+            var allMarks = marks
+            if let chord {
+                for s in 0..<g.n {
+                    let x = g.cx(0), y = g.sy(s)
+                    if chord.frets[s] == 0 {
+                        let ring = Path(ellipseIn: CGRect(x: x - 6, y: y - 6, width: 12, height: 12))
+                        c.fill(ring, with: .color(paper))
+                        c.stroke(ring, with: ink, lineWidth: 1.6)
+                    } else if chord.frets[s] == nil {
+                        c.fill(Path(CGRect(x: x - 8, y: y - 8, width: 16, height: 16)), with: .color(paper))
+                        line(CGPoint(x: x - 5, y: y - 5), CGPoint(x: x + 5, y: y + 5), 1.8)
+                        line(CGPoint(x: x + 5, y: y - 5), CGPoint(x: x - 5, y: y + 5), 1.8)
+                    }
+                }
+                if showFingers {
+                    if let b = chord.barre {
+                        let rect = CGRect(x: g.cx(b.f) - 12, y: g.sy(b.s1) - 12, width: 24, height: CGFloat(b.s2 - b.s1) * g.sp + 24)
+                        pill(rect, radius: 12, kind: chordKind, label: "1", size: 13)
+                    }
+                    for (s, f) in chord.frets.enumerated() {
+                        guard let f, f > 0 else { continue }
+                        if let b = chord.barre, f == b.f, (b.s1...b.s2).contains(s) { continue }
+                        allMarks.append(FretMark(spot: Spot(s: s, f: f), kind: chordKind, label: "\(chord.fingers[s])", round: true))
+                    }
+                }
+            }
+
+            // Note pills, styled like the printed cards
+            for m in allMarks {
+                let w: CGFloat = m.round ? 24 : m.spot.f == 0 ? 32 : min(44, g.fw - 5)
+                let h: CGFloat = m.round ? 24 : 22
+                let rect = CGRect(x: g.cx(m.spot.f) - w / 2, y: g.sy(m.spot.s) - h / 2, width: w, height: h)
+                let size: CGFloat = m.round ? 13 : m.label.count > 1 && w < 30 ? 9.5 : 12.5
+                pill(rect, radius: m.round ? 12 : 7, kind: m.kind, label: m.label, size: size)
             }
         }
         .aspectRatio(g.width / g.height, contentMode: .fit)

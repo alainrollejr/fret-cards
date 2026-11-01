@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum QuizMode: String, CaseIterable, Codable, Identifiable {
-    case staff, fret, all, same, mix
+    case staff, fret, all, same, mix, chordName, chordShape
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -9,9 +9,12 @@ enum QuizMode: String, CaseIterable, Codable, Identifiable {
         case .fret: return "Fretboard → note"
         case .all: return "Find every note"
         case .same: return "Same pitch"
-        case .mix: return "Mix all"
+        case .mix: return "Mix notes"
+        case .chordName: return "Chord → name"
+        case .chordShape: return "Name → chord"
         }
     }
+    var isChord: Bool { self == .chordName || self == .chordShape }
 }
 
 enum SoundMode: String, CaseIterable, Codable, Identifiable {
@@ -32,6 +35,21 @@ struct Settings: Codable, Equatable {
     var accidentals = false
     var sound = SoundMode.guitar
     var instrument = Instrument.guitar
+    var chordPlay = ChordPlayStyle.both
+
+    init() {}
+
+    // Settings saved by an older version lack newer keys; fall back to the defaults for those.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Settings()
+        mode = (try? c.decodeIfPresent(QuizMode.self, forKey: .mode)) ?? d.mode
+        maxFret = (try? c.decodeIfPresent(Int.self, forKey: .maxFret)) ?? d.maxFret
+        accidentals = (try? c.decodeIfPresent(Bool.self, forKey: .accidentals)) ?? d.accidentals
+        sound = (try? c.decodeIfPresent(SoundMode.self, forKey: .sound)) ?? d.sound
+        instrument = (try? c.decodeIfPresent(Instrument.self, forKey: .instrument)) ?? d.instrument
+        chordPlay = (try? c.decodeIfPresent(ChordPlayStyle.self, forKey: .chordPlay)) ?? d.chordPlay
+    }
 }
 
 struct Stats: Codable {
@@ -41,12 +59,23 @@ struct Stats: Codable {
     var best = 0
 }
 
-enum CardType: CaseIterable { case staff, fret, all, same }
+enum CardType { case staff, fret, all, same, chordName, chordShape }
 
 struct Outcome {
     let ok: Bool
     var tap: Spot?
     var pickedPC: Int?
+    var pickedChord: String?
+    var voicing: Voicing? // the shape shown after a Name → chord answer
+}
+
+struct ChordCard {
+    let pc: Int
+    let quality: ChordQuality
+    let voicings: [Voicing]
+    let voicing: Voicing // the one shown or played
+    var key: String { "\(pc)\(quality.rawValue)" }
+    var name: String { Chords.name(pc, quality) }
 }
 
 struct Card {
@@ -62,8 +91,11 @@ struct Card {
     var found: [Spot] = []
     var wrong: [Spot] = []
     var result: Outcome?
+    var chord: ChordCard?
+    var selection: [Spot] = []
 
     var isMulti: Bool { type == .all || type == .same }
+    var isChord: Bool { type == .chordName || type == .chordShape }
 }
 
 enum Tone { case neutral, good, bad }
@@ -74,6 +106,7 @@ final class QuizStore: ObservableObject {
         didSet {
             let quizChanged = oldValue.mode != settings.mode || oldValue.maxFret != settings.maxFret
                 || oldValue.accidentals != settings.accidentals || oldValue.instrument != settings.instrument
+            if oldValue.chordPlay != settings.chordPlay, card.isChord { playCurrent() }
             save()
             if quizChanged { newCard() }
         }
@@ -141,6 +174,10 @@ final class QuizStore: ObservableObject {
                     keep(open[s] + f) && positions(open[s] + f, max: max, instrument: st.instrument).count > 1
                 }.map { "u\(s)-\($0)" }
             }
+        case .chordName:
+            return Chords.keys(maxFret: st.maxFret, accidentals: st.accidentals).map { "c\($0)" }
+        case .chordShape:
+            return Chords.keys(maxFret: st.maxFret, accidentals: st.accidentals).map { "k\($0)" }
         }
     }
 
@@ -159,12 +196,17 @@ final class QuizStore: ObservableObject {
     }
 
     private static func makeCard(settings st: Settings, weights: [String: Double], avoid: String?) -> Card {
-        let type: CardType = st.mode == .mix ? CardType.allCases.randomElement()! : {
-            switch st.mode {
+        // Chord quizzes are guitar-only; on bass they fall back to reading the staff.
+        let mode = st.mode.isChord && st.instrument != .guitar ? .staff : st.mode
+        let type: CardType = {
+            switch mode {
             case .staff: return .staff
             case .fret: return .fret
             case .all: return .all
-            default: return .same
+            case .same: return .same
+            case .mix: return [CardType.staff, .fret, .all, .same].randomElement()!
+            case .chordName: return .chordName
+            case .chordShape: return .chordShape
             }
         }()
         let pref: SpellingPreference = Bool.random() ? .sharp : .flat
@@ -173,6 +215,12 @@ final class QuizStore: ObservableObject {
         let numbers = key.dropFirst().split(separator: "-").compactMap { Int($0) }
 
         switch type {
+        case .chordName, .chordShape:
+            let (pc, q) = Chords.parse(key.dropFirst())!
+            let vs = Chords.voicings(maxFret: st.maxFret).filter { $0.pc == pc && $0.quality == q }
+            let chordPref: SpellingPreference = Chords.name(pc, q).contains("♭") ? .flat : .sharp
+            return Card(type: type, key: key, pref: chordPref, spelling: Theory.spell(pc + 60, chordPref), pc: pc,
+                        boardMax: st.maxFret, chord: ChordCard(pc: pc, quality: q, voicings: vs, voicing: vs.randomElement()!))
         case .staff:
             let midi = numbers[0]
             return Card(type: type, key: key, pref: pref, spelling: Theory.spell(midi, pref), midi: midi, boardMax: st.maxFret)
@@ -206,16 +254,29 @@ final class QuizStore: ObservableObject {
     }
 
     func next() {
-        if card.isMulti && card.result == nil {
-            finish(ok: false)
-        } else {
-            newCard()
+        guard card.result == nil else { return newCard() }
+        switch card.type {
+        case .chordShape: checkChord()
+        case .chordName, .all, .same: finish(ok: false)
+        default: newCard()
         }
     }
 
     func tap(_ spot: Spot) {
         guard card.result == nil else { return }
         let midi = instrument.open[spot.s] + spot.f
+        if card.type == .chordShape {
+            // One note per string: tapping the same spot removes it, another fret moves it.
+            guard spot.f > 0 else { return }
+            if let i = card.selection.firstIndex(where: { $0.s == spot.s }) {
+                let same = card.selection[i] == spot
+                card.selection.remove(at: i)
+                if same { return }
+            }
+            card.selection.append(spot)
+            SoundEngine.shared.play(writtenMidi: midi, mode: settings.sound)
+            return
+        }
         SoundEngine.shared.play(writtenMidi: midi, mode: settings.sound)
         if card.isMulti {
             if card.type == .same && spot == card.spot { return }
@@ -235,15 +296,39 @@ final class QuizStore: ObservableObject {
         finish(ok: pc == Theory.pitchClass(card.midi), picked: pc)
     }
 
+    func pick(chord key: String) {
+        guard card.result == nil, let chord = card.chord else { return }
+        playChord(chord.voicing)
+        finish(ok: key == chord.key, pickedChord: key)
+    }
+
+    /// Accept any voicing of the chord that fits the fret range; otherwise show the closest one.
+    private func checkChord() {
+        guard let chord = card.chord else { return }
+        let sel = card.selection
+        let match = chord.voicings.first { v in v.fretted.count == sel.count && v.fretted.allSatisfy(sel.contains) }
+        let score = { (v: Voicing) in v.fretted.filter(sel.contains).count * 2 - v.fretted.count }
+        let shown = match ?? chord.voicings.max { score($0) < score($1) }!
+        playChord(shown)
+        finish(ok: match != nil, voicing: shown)
+    }
+
+    private func playChord(_ v: Voicing) {
+        SoundEngine.shared.playChord(v, instrument: instrument, mode: settings.sound, style: settings.chordPlay)
+    }
+
     func playCurrent() {
+        if let chord = card.chord {
+            return playChord(card.result?.voicing ?? chord.voicing)
+        }
         let midi = card.type == .all
             ? card.targets.map { instrument.open[$0.s] + $0.f }.min() ?? 60
             : card.midi
         SoundEngine.shared.play(writtenMidi: midi, mode: settings.sound)
     }
 
-    private func finish(ok: Bool, tap: Spot? = nil, picked: Int? = nil) {
-        card.result = Outcome(ok: ok, tap: tap, pickedPC: picked)
+    private func finish(ok: Bool, tap: Spot? = nil, picked: Int? = nil, pickedChord: String? = nil, voicing: Voicing? = nil) {
+        card.result = Outcome(ok: ok, tap: tap, pickedPC: picked, pickedChord: pickedChord, voicing: voicing)
         stats.total += 1
         let wk = Self.weightKey(card.key, settings)
         if ok {
@@ -258,7 +343,8 @@ final class QuizStore: ObservableObject {
         }
         Haptics.result(ok)
         save()
-        if ok {
+        // Chord answers stay up so the fingering can be studied while it plays.
+        if ok && !card.isChord {
             advanceTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 1_100_000_000)
                 guard !Task.isCancelled else { return }
@@ -292,10 +378,15 @@ final class QuizStore: ObservableObject {
         case .fret: return "Which note is this?"
         case .all: return "Tap every \(card.spelling.name)"
         case .same: return "Tap the same pitch on other strings"
+        case .chordName: return "Which chord is this?"
+        case .chordShape: return "Fret \(card.chord!.name)"
         }
     }
 
     var promptSubtitle: String {
+        if let chord = card.chord {
+            return "\(chord.quality == .major ? "Major" : "Minor") chord on frets 0–\(card.boardMax). Tap the fretted notes; open and muted strings need no tap."
+        }
         let n = card.targets.count
         if card.type == .all {
             return "\(n) spots on frets 0–\(card.boardMax), all strings and octaves"
@@ -326,13 +417,41 @@ final class QuizStore: ObservableObject {
             if card.result != nil {
                 marks += card.targets.filter { !card.found.contains($0) }.map { FretMark(spot: $0, kind: .missed, label: label) }
             }
-        case .fret:
+        case .chordShape:
+            guard card.result != nil, let v = card.result?.voicing else {
+                return card.selection.map { FretMark(spot: $0, kind: .question, label: name(at: $0)) }
+            }
+            for p in v.fretted {
+                marks.append(FretMark(spot: p, kind: card.selection.contains(p) ? .good : .missed, label: "\(v.fingers[p.s])", round: true))
+            }
+            marks += card.selection.filter { !v.fretted.contains($0) }.map { FretMark(spot: $0, kind: .bad, label: name(at: $0)) }
+        case .fret, .chordName:
             break
         }
         return marks
     }
 
+    /// Kind used to colour the chord diagram on a Chord → name card.
+    var chordKind: FretMark.Kind {
+        card.result.map { $0.ok ? .good : .bad } ?? .question
+    }
+
     var feedback: (main: String, hint: String, tone: Tone) {
+        if let chord = card.chord {
+            let shape = { (v: Voicing) in "\(v.tab), \(v.place)" }
+            guard let r = card.result else {
+                guard card.type == .chordShape, !card.selection.isEmpty else { return ("", "", .neutral) }
+                let n = card.selection.count
+                return ("\(n) \(n == 1 ? "note" : "notes") placed.", "Tap a note again to remove it.", .neutral)
+            }
+            let v = r.voicing ?? chord.voicing
+            if r.ok { return ("Right, \(chord.name).", shape(v), .good) }
+            if card.type == .chordShape {
+                return ("\(chord.name) is \(shape(v)).", "Numbers are fingers; dashed spots are the ones you missed.", .bad)
+            }
+            let said = r.pickedChord.flatMap { Chords.parse($0[...]) }.map { "You picked \(Chords.name($0.pc, $0.quality)). " } ?? ""
+            return ("\(said)This is \(chord.name).", shape(v), .bad)
+        }
         let name = card.spelling.name
         if card.isMulti {
             let n = card.targets.count
@@ -369,6 +488,7 @@ final class QuizStore: ObservableObject {
 
     var nextTitle: String {
         if card.result != nil { return "Next card" }
+        if card.type == .chordShape { return card.selection.isEmpty ? "Show answer" : "Check" }
         return card.isMulti ? "Show answer" : "Skip"
     }
 
@@ -384,6 +504,9 @@ final class QuizStore: ObservableObject {
         let numbers = key.dropFirst().split(separator: "-").compactMap { Int($0) }
         let open = instrument.open
         switch key.first {
+        case "c", "k":
+            guard let (pc, q) = Chords.parse(key.dropFirst()) else { return key }
+            return key.first == "c" ? "Chord shape: \(Chords.name(pc, q))" : "Fret \(Chords.name(pc, q))"
         case "a": return "Every " + Theory.pitchClassNames[numbers[0]].joined(separator: "/")
         case "u": return "Same pitch as the " + describe(Spot(s: numbers[0], f: numbers[1]))
         case "s":

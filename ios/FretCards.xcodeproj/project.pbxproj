@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0F417D0EDB1E4FA4547D367C /* Theory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DD8402BE58DF3D01649C68 /* Theory.swift */; };
+		3123A9C0CDCE429BA8C103C5 /* Chords.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BDE3E3EC2E3E59C97453C7 /* Chords.swift */; };
 		344808B99F69785310F47E57 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBEC0CF085C21C08A090D4C /* ContentView.swift */; };
 		527E16CBE5312719F6D86FB6 /* StaffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667FFC54494C7942CE0D50B6 /* StaffView.swift */; };
 		52F0786B9B882F12C94AE955 /* FretboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35241CC83897F5FFD33A4F38 /* FretboardView.swift */; };
@@ -24,6 +25,7 @@
 /* Begin PBXFileReference section */
 		04BDA27A5CF3271CE82C903D /* FretCardsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FretCardsApp.swift; sourceTree = "<group>"; };
 		2217E8B53D0E292F8F69200B /* QuizStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizStore.swift; sourceTree = "<group>"; };
+		24BDE3E3EC2E3E59C97453C7 /* Chords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chords.swift; sourceTree = "<group>"; };
 		35241CC83897F5FFD33A4F38 /* FretboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FretboardView.swift; sourceTree = "<group>"; };
 		48DD8402BE58DF3D01649C68 /* Theory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theory.swift; sourceTree = "<group>"; };
 		4BB68C850C68A914BD785F4A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -31,7 +33,7 @@
 		657479D9754CA86654AF4D93 /* NotoMusic-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "NotoMusic-Regular.ttf"; sourceTree = "<group>"; };
 		667FFC54494C7942CE0D50B6 /* StaffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffView.swift; sourceTree = "<group>"; };
 		6B36B81290008B1DC65CFAB7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		70A22ABE1BCC9677CEA18FEA /* FretCards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FretCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		70A22ABE1BCC9677CEA18FEA /* FretCards.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FretCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0F05C2679E3F2EA378D5F8C /* NotoMusic-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "NotoMusic-OFL.txt"; sourceTree = "<group>"; };
 		D177192582494B594D9D9595 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F7ACCC0DA73FC91A4E673892 /* SoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEngine.swift; sourceTree = "<group>"; };
@@ -68,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				4BB68C850C68A914BD785F4A /* Assets.xcassets */,
+				24BDE3E3EC2E3E59C97453C7 /* Chords.swift */,
 				FDBEC0CF085C21C08A090D4C /* ContentView.swift */,
 				35241CC83897F5FFD33A4F38 /* FretboardView.swift */,
 				04BDA27A5CF3271CE82C903D /* FretCardsApp.swift */,
@@ -114,6 +117,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					2C1087B82A88F18530870897 = {
+						DevelopmentTeam = LH2HGCF7LX;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -155,6 +159,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3123A9C0CDCE429BA8C103C5 /* Chords.swift in Sources */,
 				344808B99F69785310F47E57 /* ContentView.swift in Sources */,
 				EEA9A206F2BE604D7265B949 /* FretCardsApp.swift in Sources */,
 				52F0786B9B882F12C94AE955 /* FretboardView.swift in Sources */,

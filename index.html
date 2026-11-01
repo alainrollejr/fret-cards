@@ -191,6 +191,7 @@ svg text.notename { font-family: var(--font-display); font-weight: 700; fill: va
   cursor: pointer;
   flex-shrink: 0;
 }
+.notes.chords button { font-size: 1.1rem; min-height: 50px; }
 #next.skip { background: transparent; color: var(--muted); border: 1.5px solid var(--line); }
 #reveal svg { display: block; width: 100%; max-width: 260px; height: auto; margin: 0 auto; }
 
@@ -223,6 +224,8 @@ summary {
   cursor: pointer;
 }
 .seg input:checked + span { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.seg input:disabled + span { opacity: 0.4; cursor: default; }
+.group-note { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .check { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
 .check input { width: 22px; height: 22px; accent-color: var(--accent); }
 .weak { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -279,8 +282,11 @@ summary {
           <label><input type="radio" name="mode" id="mode-fret" value="fret"><span>Fretboard → note</span></label>
           <label><input type="radio" name="mode" id="mode-all" value="all"><span>Find every note</span></label>
           <label><input type="radio" name="mode" id="mode-same" value="same"><span>Same pitch</span></label>
-          <label><input type="radio" name="mode" id="mode-mix" value="mix"><span>Mix all</span></label>
+          <label><input type="radio" name="mode" id="mode-mix" value="mix"><span>Mix notes</span></label>
+          <label><input type="radio" name="mode" id="mode-chordName" value="chordName"><span>Chord → name</span></label>
+          <label><input type="radio" name="mode" id="mode-chordShape" value="chordShape"><span>Name → chord</span></label>
         </div>
+        <p class="group-note" id="chord-note" hidden>Chord quizzes are for guitar.</p>
       </div>
       <div class="group">
         <span class="group-title">Frets</span>
@@ -305,6 +311,14 @@ summary {
           <label><input type="radio" name="sound" id="sound-guitar" value="guitar"><span>Acoustic guitar</span></label>
           <label><input type="radio" name="sound" id="sound-tone" value="tone"><span>Simple tone</span></label>
           <label><input type="radio" name="sound" id="sound-off" value="off"><span>Off</span></label>
+        </div>
+      </div>
+      <div class="group">
+        <span class="group-title">Chord sound</span>
+        <div class="seg" role="radiogroup" aria-label="Chord sound">
+          <label><input type="radio" name="chordPlay" id="chordPlay-strum" value="strum"><span>Strum</span></label>
+          <label><input type="radio" name="chordPlay" id="chordPlay-both" value="both"><span>Strum + arpeggio</span></label>
+          <label><input type="radio" name="chordPlay" id="chordPlay-arp" value="arp"><span>Arpeggio</span></label>
         </div>
       </div>
       <div class="group">
@@ -343,7 +357,7 @@ summary {
   const pcOf = (m) => ((m % 12) + 12) % 12;
 
   const defaults = () => ({
-    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar', instrument: 'guitar' },
+    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar', instrument: 'guitar', chordPlay: 'both' },
     stats: { right: 0, total: 0, streak: 0, best: 0 },
     w: {},
   });
@@ -433,35 +447,69 @@ summary {
       return buf;
     }
 
-    function play(writtenMidi) {
+    // Returns the voice's gain node and start time so a chord can cut a string's previous note.
+    function play(writtenMidi, delay = 0, level = 1) {
       const mode = S.settings.sound;
-      if (mode === 'off') return;
+      if (mode === 'off') return null;
       const c = ensure();
-      if (!c) return;
+      if (!c) return null;
       const midi = writtenMidi - 12;
       const freq = 440 * Math.pow(2, (midi - 69) / 12);
-      const t = c.currentTime + 0.01;
+      const t = c.currentTime + 0.01 + delay;
       if (mode === 'guitar') {
         let buf = cache.get(midi);
         if (!buf) { buf = pluckBuffer(c, freq); cache.set(midi, buf); }
         const src = c.createBufferSource();
+        const g = c.createGain();
+        g.gain.value = level;
         src.buffer = buf;
-        src.connect(body);
+        src.connect(g).connect(body);
         src.start(t);
+        return { g, t };
       } else {
         const o = c.createOscillator();
         const g = c.createGain();
         o.type = 'triangle';
         o.frequency.value = freq;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.35, t + 0.01);
+        g.gain.linearRampToValueAtTime(0.35 * level, t + 0.01);
         g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
         o.connect(g).connect(c.destination);
         o.start(t);
         o.stop(t + 1.3);
+        return { g, t };
       }
     }
-    return { play };
+    // Down, up, down strum and/or a low-to-high arpeggio. A new pluck on a string
+    // stops that string's previous note, as on a real guitar.
+    let ringing = [];
+    function chord(v) {
+      const c = ensure();
+      if (!c || S.settings.sound === 'off') return;
+      for (const r of ringing) if (r) r.g.gain.setTargetAtTime(0, c.currentTime, 0.02);
+      ringing = [];
+      const strings = [];
+      for (let s = v.frets.length - 1; s >= 0; s--) if (v.frets[s] !== null) strings.push(s); // low to high
+      const voices = Math.max(3, strings.length);
+      const hit = (s, at, level) => {
+        const prev = ringing[s];
+        const r = play(OPEN[s] + v.frets[s], at, level / Math.sqrt(voices));
+        if (prev && r) prev.g.gain.setTargetAtTime(0, r.t, 0.015);
+        if (r) ringing[s] = r;
+      };
+      const style = S.settings.chordPlay;
+      let t = 0;
+      if (style !== 'arp') {
+        strings.forEach((s, i) => hit(s, t + i * 0.028, 1));
+        t += 0.55;
+        strings.slice(-4).reverse().forEach((s, i) => hit(s, t + i * 0.022, 0.65));
+        t += 0.4;
+        strings.forEach((s, i) => hit(s, t + i * 0.03, 1));
+        t += 1.3;
+      }
+      if (style !== 'strum') strings.forEach((s, i) => hit(s, t + i * 0.26, 1.5));
+    }
+    return { play, chord };
   })();
 
   function spell(midi, pref) {
@@ -517,6 +565,58 @@ summary {
     }
     return out;
   }
+
+  // ---------- chords (guitar only) ----------
+  // Shapes are written low E string first: null = muted, 0 = open; finger 0 = no finger.
+  const CHORD_NAMES = {
+    M: ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'],
+    m: ['Cm', 'C♯m', 'Dm', 'E♭m', 'Em', 'Fm', 'F♯m', 'Gm', 'G♯m', 'Am', 'B♭m', 'Bm'],
+  };
+  const OPEN_CHORDS = [
+    { pc: 0, q: 'M', frets: [null, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
+    { pc: 2, q: 'M', frets: [null, null, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
+    { pc: 4, q: 'M', frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0] },
+    { pc: 7, q: 'M', frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3] },
+    { pc: 9, q: 'M', frets: [null, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
+    { pc: 2, q: 'm', frets: [null, null, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
+    { pc: 4, q: 'm', frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0] },
+    { pc: 9, q: 'm', frets: [null, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
+  ];
+  // Barre shapes, moved up the neck by r frets; the root sits on the low E or A string.
+  const MOVABLE = [
+    { shape: 'E', q: 'M', base: 4, frets: [0, 2, 2, 1, 0, 0], fingers: [1, 3, 4, 2, 1, 1], barre: [0, 5] },
+    { shape: 'E', q: 'm', base: 4, frets: [0, 2, 2, 0, 0, 0], fingers: [1, 3, 4, 1, 1, 1], barre: [0, 5] },
+    { shape: 'A', q: 'M', base: 9, frets: [null, 0, 2, 2, 2, 0], fingers: [0, 1, 2, 3, 4, 1], barre: [1, 5] },
+    { shape: 'A', q: 'm', base: 9, frets: [null, 0, 2, 2, 1, 0], fingers: [0, 1, 3, 4, 2, 1], barre: [1, 5] },
+  ];
+  // Every voicing that fits in frets 0–max, converted to diagram order (high string first).
+  function voicings(max) {
+    const flip = (a) => a.slice().reverse();
+    const out = OPEN_CHORDS.filter((c) => Math.max(...c.frets.filter((f) => f !== null)) <= max)
+      .map((c) => ({ pc: c.pc, q: c.q, frets: flip(c.frets), fingers: flip(c.fingers), barre: null, where: 'open chord' }));
+    for (const m of MOVABLE) for (let r = 1; r + 2 <= max; r++) {
+      out.push({
+        pc: (m.base + r) % 12, q: m.q,
+        frets: flip(m.frets.map((f) => (f === null ? null : f + r))),
+        fingers: flip(m.fingers),
+        barre: { f: r, s1: 5 - m.barre[1], s2: 5 - m.barre[0] },
+        where: `${m.shape}-shape barre at fret ${r}`,
+      });
+    }
+    return out;
+  }
+  const fretted = (v) => v.frets.map((f, s) => ({ s, f })).filter((p) => p.f > 0);
+  const tabOf = (v) => {
+    const t = v.frets.slice().reverse().map((f) => (f === null ? 'x' : f));
+    return t.some((f) => f > 9) ? t.join('-') : t.join('');
+  };
+  function chordPool(prefix) {
+    const seen = new Set();
+    for (const v of voicings(S.settings.maxFret)) if (S.settings.acc || isNat(v.pc)) seen.add(`${v.pc}${v.q}`);
+    return [...seen].sort((a, b) => parseInt(a) - parseInt(b) || (a.slice(-1) === 'M' ? -1 : 1)).map((k) => prefix + k);
+  }
+  const isChord = (t) => t === 'chordName' || t === 'chordShape';
+
   const wkey = (k) => `${S.settings.instrument}|${k}`;
   const weight = (k) => S.w[wkey(k)] || 1;
 
@@ -531,13 +631,19 @@ summary {
 
   function newCard() {
     clearTimeout(advanceTimer);
-    const mode = S.settings.mode;
+    let mode = S.settings.mode;
+    if (isChord(mode) && S.settings.instrument !== 'guitar') mode = 'staff';
     const types = ['staff', 'fret', 'all', 'same'];
     const type = mode === 'mix' ? types[Math.floor(Math.random() * types.length)] : mode;
     const pref = Math.random() < 0.5 ? 'sharp' : 'flat';
-    const pools = { staff: staffPool, fret: fretPool, all: allPool, same: samePool };
+    const pools = { staff: staffPool, fret: fretPool, all: allPool, same: samePool, chordName: () => chordPool('c'), chordShape: () => chordPool('k') };
     const key = pick(pools[type]());
-    if (type === 'staff') {
+    if (isChord(type)) {
+      const pc = parseInt(key.slice(1)), q = key.slice(-1);
+      const vs = voicings(S.settings.maxFret).filter((v) => v.pc === pc && v.q === q);
+      const name = CHORD_NAMES[q][pc];
+      cur = { type, key, pc, q, name, pref: name.includes('♭') ? 'flat' : 'sharp', vs, v: vs[Math.floor(Math.random() * vs.length)], sel: [], result: null };
+    } else if (type === 'staff') {
       const midi = +key.slice(1);
       cur = { type, key, midi, pref, sp: spell(midi, pref), result: null };
     } else if (type === 'all') {
@@ -604,7 +710,7 @@ summary {
     return `<svg viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
   }
 
-  function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret }) {
+  function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret, chord = null, chordKind = '', fingers = true }) {
     const W = 340, xs = 16, x0 = 56, x1 = 332, // tab labels sit left of xs
       fw = (x1 - x0) / max;
     const n = OPEN.length, last = n - 1;
@@ -639,11 +745,31 @@ summary {
         g += `<rect class="hit" data-s="${s}" data-f="${f}" x="${x}" y="${sy(s) - sp / 2}" width="${w}" height="${sp}"/>`;
       }
     }
+    // chord shape: open/muted signs left of the nut, a barre, finger numbers
+    if (chord) {
+      for (let s = 0; s < n; s++) {
+        const x = cx(0), y = sy(s);
+        if (chord.frets[s] === 0) g += `<circle cx="${x}" cy="${y}" r="6" fill="var(--card)" class="s-ink" stroke-width="1.6"/>`;
+        else if (chord.frets[s] === null) g += `<rect x="${x - 8}" y="${y - 8}" width="16" height="16" fill="var(--card)"/><path d="M${x - 5} ${y - 5}L${x + 5} ${y + 5}M${x + 5} ${y - 5}L${x - 5} ${y + 5}" class="s-ink" stroke-width="1.8"/>`;
+      }
+      if (fingers) {
+        const b = chord.barre;
+        if (b) {
+          g += `<g class="pill ${chordKind}"><rect x="${cx(b.f) - 12}" y="${sy(b.s1) - 12}" width="24" height="${(b.s2 - b.s1) * sp + 24}" rx="12"/>`
+            + `<text x="${cx(b.f)}" y="${sy((b.s1 + b.s2) / 2) + 4.3}" text-anchor="middle" font-size="13">1</text></g>`;
+        }
+        chord.frets.forEach((f, s) => {
+          if (!(f > 0) || (b && f === b.f && s >= b.s1 && s <= b.s2)) return;
+          marks = marks.concat({ s, f, kind: chordKind, label: String(chord.fingers[s]), round: true });
+        });
+      }
+    }
     // note pills, styled like the printed cards
     for (const m of marks) {
-      const w = m.f === 0 ? 32 : Math.min(44, fw - 5);
-      const t = m.label.length > 1 && w < 30 ? 9.5 : 12.5;
-      g += `<g class="pill ${m.kind || ''}"><rect x="${cx(m.f) - w / 2}" y="${sy(m.s) - 11}" width="${w}" height="22" rx="7"/>`
+      const w = m.round ? 24 : m.f === 0 ? 32 : Math.min(44, fw - 5);
+      const h = m.round ? 24 : 22;
+      const t = m.round ? 13 : m.label.length > 1 && w < 30 ? 9.5 : 12.5;
+      g += `<g class="pill ${m.kind || ''}"><rect x="${cx(m.f) - w / 2}" y="${sy(m.s) - h / 2}" width="${w}" height="${h}" rx="${m.round ? 12 : 7}"/>`
         + `<text x="${cx(m.f)}" y="${sy(m.s) + 4.3}" text-anchor="middle" font-size="${t}">${m.label}</text></g>`;
     }
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${S.settings.instrument === 'bass' ? 'Bass' : 'Guitar'} fretboard, frets 0 to ${max}">${g}</svg>`;
@@ -659,6 +785,11 @@ summary {
 
     if (cur.type === 'all' || cur.type === 'same') {
       renderMulti();
+      renderStats();
+      return;
+    }
+    if (isChord(cur.type)) {
+      renderChord();
       renderStats();
       return;
     }
@@ -770,6 +901,91 @@ summary {
     else render();
   }
 
+  function renderChord() {
+    const r = cur.result;
+    const fb = $('feedback'), next = $('next');
+    const shapeTxt = (v) => `${tabOf(v)}, ${v.where}`;
+    const nameAt = (p) => spell(OPEN[p.s] + p.f, cur.pref).name;
+    if (cur.type === 'chordName') {
+      $('prompt-label').textContent = 'Which chord is this?';
+      $('prompt').innerHTML = fretSVG({ chord: cur.v, chordKind: r ? (r.ok ? 'good' : 'bad') : '' });
+      const opts = chordPool('');
+      $('answer').innerHTML = `<div class="notes chords">${opts.map((k) => {
+        const pc = parseInt(k), q = k.slice(-1);
+        let cls = '';
+        if (r && pc === cur.pc && q === cur.q) cls = 'good';
+        else if (r && !r.ok && r.pick === k) cls = 'bad';
+        return `<button type="button" data-chord="${k}" class="${cls}" ${r ? 'disabled' : ''}>${CHORD_NAMES[q][pc]}</button>`;
+      }).join('')}</div>`;
+      if (!r) {
+        fb.className = 'feedback'; fb.innerHTML = '';
+        next.textContent = 'Skip'; next.className = 'skip';
+        return;
+      }
+      if (r.ok) { fb.className = 'feedback good'; fb.innerHTML = `Right, ${cur.name}. <span class="hint">${shapeTxt(cur.v)}</span>`; }
+      else {
+        const said = r.pick ? CHORD_NAMES[r.pick.slice(-1)][parseInt(r.pick)] : '';
+        fb.className = 'feedback bad';
+        fb.innerHTML = `${said ? `You picked ${said}. ` : ''}This is ${cur.name}: <span class="hint">${shapeTxt(cur.v)}</span>`;
+      }
+    } else {
+      $('prompt-label').textContent = `Fret ${cur.name}`;
+      $('prompt').innerHTML = `<div class="bigname">${cur.name}</div><div class="sub">${cur.q === 'M' ? 'Major' : 'Minor'} chord on frets 0–${S.settings.maxFret}. Tap the fretted notes; open and muted strings need no tap.</div>`;
+      if (!r) {
+        const marks = cur.sel.map((p) => ({ ...p, kind: '', label: nameAt(p) }));
+        $('answer').innerHTML = fretSVG({ marks, interactive: true });
+        fb.className = 'feedback';
+        if (cur.sel.length) {
+          fb.innerHTML = `<b>${cur.sel.length}</b> ${cur.sel.length === 1 ? 'note' : 'notes'} placed. <span class="hint">Tap a note again to remove it.</span>`;
+          next.textContent = 'Check'; next.className = '';
+        } else {
+          fb.innerHTML = '';
+          next.textContent = 'Show answer'; next.className = 'skip';
+        }
+        return;
+      }
+      const marks = [];
+      fretted(r.v).forEach((p) => marks.push({ ...p, kind: has(cur.sel, p) ? 'good' : 'miss', label: String(r.v.fingers[p.s]), round: true }));
+      cur.sel.filter((p) => !has(fretted(r.v), p)).forEach((p) => marks.push({ ...p, kind: 'bad', label: nameAt(p) }));
+      $('answer').innerHTML = fretSVG({ marks, chord: r.v, fingers: false });
+      if (r.ok) { fb.className = 'feedback good'; fb.innerHTML = `Right, ${cur.name}. <span class="hint">${shapeTxt(r.v)}</span>`; }
+      else {
+        fb.className = 'feedback bad';
+        fb.innerHTML = `${cur.name} is ${shapeTxt(r.v)}. <span class="hint">Numbers are fingers; dashed spots are the ones you missed.</span>`;
+      }
+    }
+    next.textContent = 'Next card';
+    next.className = '';
+  }
+
+  function tapChord(p) {
+    if (p.f === 0) return;
+    const i = cur.sel.findIndex((q) => q.s === p.s);
+    if (i >= 0 && cur.sel[i].f === p.f) cur.sel.splice(i, 1);
+    else {
+      if (i >= 0) cur.sel.splice(i, 1);
+      cur.sel.push(p);
+      Sound.play(OPEN[p.s] + p.f);
+    }
+    render();
+  }
+
+  // Accept any voicing of the chord that fits the fret range; otherwise show the closest one.
+  function checkChord() {
+    const same = (v) => { const f = fretted(v); return f.length === cur.sel.length && f.every((p) => has(cur.sel, p)); };
+    const match = cur.vs.find(same);
+    const score = (v) => fretted(v).filter((p) => has(cur.sel, p)).length * 2 - fretted(v).length;
+    const v = match || cur.vs.slice().sort((a, b) => score(b) - score(a))[0];
+    Sound.chord(v);
+    answer(!!match, { v });
+  }
+
+  function playCurrent() {
+    if (!cur) return;
+    if (isChord(cur.type)) Sound.chord(cur.result && cur.result.v ? cur.result.v : cur.v);
+    else Sound.play(cur.type === 'all' ? Math.min(...cur.targets.map((t) => OPEN[t.s] + t.f)) : cur.midi);
+  }
+
   function renderStats() {
     $('sc-right').textContent = S.stats.right;
     $('sc-total').textContent = S.stats.total;
@@ -782,6 +998,10 @@ summary {
       : '<li class="weak-empty">Notes you miss will show up here.</li>';
   }
   function labelFor(k) {
+    if (k[0] === 'c' || k[0] === 'k') {
+      const name = CHORD_NAMES[k.slice(-1)][parseInt(k.slice(1))];
+      return k[0] === 'c' ? `Chord shape: ${name}` : `Fret ${name}`;
+    }
     if (k[0] === 'a') return `Every ${PCS[+k.slice(1)].join('/')}`;
     if (k[0] === 'u') {
       const [s, f] = k.slice(1).split('-').map(Number);
@@ -811,7 +1031,7 @@ summary {
     }
     save();
     render();
-    if (ok) advanceTimer = setTimeout(newCard, 1100);
+    if (ok && !isChord(cur.type)) advanceTimer = setTimeout(newCard, 1100);
   }
 
   // ---------- events ----------
@@ -820,9 +1040,16 @@ summary {
     const hit = e.target.closest('.hit');
     if (hit) {
       const tap = { s: +hit.dataset.s, f: +hit.dataset.f };
+      if (cur.type === 'chordShape') { tapChord(tap); return; }
       Sound.play(OPEN[tap.s] + tap.f);
       if (cur.type === 'all' || cur.type === 'same') { tapMulti(tap); return; }
       answer(OPEN[tap.s] + tap.f === cur.midi, { tap });
+      return;
+    }
+    const cb = e.target.closest('button[data-chord]');
+    if (cb) {
+      Sound.chord(cur.v);
+      answer(cb.dataset.chord === `${cur.pc}${cur.q}`, { pick: cb.dataset.chord });
       return;
     }
     const btn = e.target.closest('button[data-pc]');
@@ -834,6 +1061,8 @@ summary {
   });
   $('next').addEventListener('click', () => {
     if ((cur.type === 'all' || cur.type === 'same') && !cur.result) answer(false, {});
+    else if (cur.type === 'chordShape' && !cur.result) checkChord();
+    else if (cur.type === 'chordName' && !cur.result) answer(false, {});
     else newCard();
   });
 
@@ -842,10 +1071,14 @@ summary {
     $('frets-' + S.settings.maxFret).checked = true;
     $('acc').checked = S.settings.acc;
     $('sound-' + S.settings.sound).checked = true;
+    $('chordPlay-' + S.settings.chordPlay).checked = true;
     $('instrument-' + S.settings.instrument).checked = true;
+    const guitar = S.settings.instrument === 'guitar';
+    $('mode-chordName').disabled = $('mode-chordShape').disabled = !guitar;
+    $('chord-note').hidden = guitar;
   }
   document.querySelectorAll('input[name="instrument"]').forEach((el) => el.addEventListener('change', () => {
-    S.settings.instrument = el.value; applyInstrument(); save(); cur = null; newCard();
+    S.settings.instrument = el.value; applyInstrument(); save(); syncSettingsUI(); cur = null; newCard();
   }));
   document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener('change', () => {
     S.settings.mode = el.value; save(); newCard();
@@ -855,13 +1088,13 @@ summary {
   }));
   $('acc').addEventListener('change', (e) => { S.settings.acc = e.target.checked; save(); newCard(); });
   document.querySelectorAll('input[name="sound"]').forEach((el) => el.addEventListener('change', () => {
-    S.settings.sound = el.value; save(); render();
-    if (cur) Sound.play(cur.type === 'all' ? Math.min(...cur.targets.map((t) => OPEN[t.s] + t.f)) : cur.midi);
+    S.settings.sound = el.value; save(); render(); playCurrent();
   }));
-  $('play').addEventListener('click', () => {
-    if (!cur) return;
-    Sound.play(cur.type === 'all' ? Math.min(...cur.targets.map((t) => OPEN[t.s] + t.f)) : cur.midi);
-  });
+  $('play').addEventListener('click', playCurrent);
+  document.querySelectorAll('input[name="chordPlay"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.chordPlay = el.value; save();
+    if (cur && isChord(cur.type)) playCurrent();
+  }));
 
   const resetBtn = $('reset');
   let armed = false;

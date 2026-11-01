@@ -14,12 +14,18 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                Section("Quiz") {
+                Section {
                     Picker("Quiz", selection: $store.settings.mode) {
-                        ForEach(QuizMode.allCases) { Text($0.title).tag($0) }
+                        ForEach(QuizMode.allCases.filter { store.settings.instrument == .guitar || !$0.isChord }) {
+                            Text($0.title).tag($0)
+                        }
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
+                } header: {
+                    Text("Quiz")
+                } footer: {
+                    if store.settings.instrument != .guitar { Text("Chord quizzes are for guitar.") }
                 }
                 Section("Frets") {
                     Picker("Frets", selection: $store.settings.maxFret) {
@@ -35,6 +41,12 @@ struct SettingsView: View {
                 Section("Sound") {
                     Picker("Sound", selection: $store.settings.sound) {
                         ForEach(SoundMode.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("Chord sound") {
+                    Picker("Chord sound", selection: $store.settings.chordPlay) {
+                        ForEach(ChordPlayStyle.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
