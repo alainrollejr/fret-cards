@@ -76,6 +76,7 @@ struct ContentView: View {
             case .staff:
                 StaffView(spelling: card.spelling, instrument: store.settings.instrument,
                           maxFret: store.settings.maxFret, cornerLabel: store.cornerLabel)
+                    .frame(maxHeight: 130) // keep the note small so the neck gets the room
             case .fret:
                 FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout, marks: store.promptMarks)
             case .chordName:
