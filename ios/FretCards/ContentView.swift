@@ -111,7 +111,7 @@ struct ContentView: View {
 
     private func board(marks: [FretMark] = [], chord: Voicing? = nil, chordKind: FretMark.Kind = .question) -> some View {
         FretboardView(instrument: store.settings.instrument, frets: store.card.frets, layout: store.settings.fretLayout,
-                      marks: marks, chord: chord, chordKind: chordKind, compact: landscape)
+                      marks: marks, chord: chord, chordKind: chordKind, compact: landscape, stringGap: landscape ? 30 : nil)
             .padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
     }
@@ -213,6 +213,7 @@ struct ContentView: View {
         let card = store.card
         return FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout,
                              marks: store.answerMarks, chord: card.result?.voicing, showFingers: false, compact: landscape,
+                             stringGap: landscape ? 38 : nil,
                              onTap: card.result == nil ? { store.tap($0) } : nil)
             .padding(.vertical, landscape ? 2 : 4)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
