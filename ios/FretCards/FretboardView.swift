@@ -32,6 +32,7 @@ struct FretboardView: View {
     var chord: Voicing?
     var chordKind: FretMark.Kind = .question
     var showFingers = true
+    var compact = false // tighter string spacing for a phone held sideways
     var onTap: ((Spot) -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -43,6 +44,7 @@ struct FretboardView: View {
         let frets: ClosedRange<Int>
         let layout: FretLayout
         let available: CGFloat
+        var compact = false
 
         var vertical: Bool { layout == .vertical }
         var hasOpen: Bool { frets.lowerBound == 0 }
@@ -57,17 +59,17 @@ struct FretboardView: View {
         }
         var uEnd: CGFloat { u0 + CGFloat(cells) * fw }
 
-        var sp: CGFloat { vertical ? min(64, (available - 32) / CGFloat(n)) : 31 }
+        var sp: CGFloat { vertical ? min(64, (available - 32) / CGFloat(n)) : compact ? 26 : 31 }
         var vLeft: CGFloat { 26 + (available - 32 - CGFloat(n) * sp) / 2 }
         func v(_ s: Int) -> CGFloat {
-            vertical ? vLeft + (CGFloat(n - 1 - s) + 0.5) * sp : 34 + CGFloat(s) * sp
+            vertical ? vLeft + (CGFloat(n - 1 - s) + 0.5) * sp : (compact ? 28 : 34) + CGFloat(s) * sp
         }
-        var vNumbers: CGFloat { vertical ? vLeft - 13 : 14 }
+        var vNumbers: CGFloat { vertical ? vLeft - 13 : compact ? 11 : 14 }
 
         var size: CGSize {
             vertical
                 ? CGSize(width: available, height: uEnd + 10)
-                : CGSize(width: uEnd + 8, height: v(n - 1) + 22)
+                : CGSize(width: uEnd + 8, height: v(n - 1) + (compact ? 18 : 22))
         }
 
         func cu(_ f: Int) -> CGFloat {
@@ -97,10 +99,10 @@ struct FretboardView: View {
 
     var body: some View {
         // Auto: horizontal when every fret fits across the screen (landscape), otherwise vertical.
-        let wide = Geometry(n: instrument.open.count, frets: frets, layout: .horizontal, available: available)
+        let wide = Geometry(n: instrument.open.count, frets: frets, layout: .horizontal, available: available, compact: compact)
         let fits = wide.size.width <= available + 0.5
         let g = layout == .vertical || (layout == .auto && !fits)
-            ? Geometry(n: instrument.open.count, frets: frets, layout: .vertical, available: available)
+            ? Geometry(n: instrument.open.count, frets: frets, layout: .vertical, available: available, compact: compact)
             : wide
         Group {
             if !g.vertical && g.size.width > available + 0.5 {

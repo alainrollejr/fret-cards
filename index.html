@@ -259,6 +259,43 @@ summary {
 @media (prefers-reduced-motion: reduce) {
   .pill { animation: none; }
 }
+
+/* Phone held sideways: a slim strip with the question, then the neck across the full width, all in one glance. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app {
+    max-width: none;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "prompt head result" "prompt label result" "answer answer answer" "settings settings settings";
+    align-items: center;
+    gap: 6px 14px;
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  }
+  body[data-type="fret"] .app, body[data-type="chordName"] .app {
+    grid-template-areas: "reveal head result" "reveal label result" "prompt prompt prompt" "answer answer answer" "settings settings settings";
+  }
+  header { grid-area: head; }
+  header h1 { display: none; }
+  .label-row { grid-area: label; margin: 0; }
+  .label { font-size: 1rem; }
+  #prompt { grid-area: prompt; }
+  #answer { grid-area: answer; }
+  #reveal { grid-area: reveal; }
+  .result { grid-area: result; flex-direction: column; align-items: flex-end; max-width: 40vw; }
+  #settings { grid-area: settings; }
+  body:not([data-type="fret"]):not([data-type="chordName"]) #prompt { width: 190px; padding: 4px 8px; }
+  .card svg.staff { max-height: 78px; }
+  #reveal svg { max-height: 78px; width: 170px; }
+  .bigname { font-size: 2rem; }
+  .sub { font-size: 0.72rem; padding: 2px 0; }
+  /* boards fill the width but never push the answer below the fold */
+  #answer svg { max-height: calc(100vh - 120px); }
+  body[data-type="fret"] svg, body[data-type="chordName"] svg { max-height: calc(100vh - 170px); }
+  .notes { grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); }
+  .notes.chords { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 6px; }
+  .notes.chords button { font-size: 0.95rem; }
+  .notes button, .notes.chords button { min-height: 38px; padding: 4px; }
+}
 </style>
 
 </head>
@@ -853,6 +890,7 @@ summary {
 
   // ---------- rendering ----------
   function render() {
+    document.body.dataset.type = cur.type; // lets the sideways layout arrange itself per quiz
     const r = cur.result;
     const fb = $('feedback');
     const next = $('next');
