@@ -761,7 +761,9 @@ summary {
     const y = BOT - step * GAP / 2;
     const topSp = spell(OPEN[0] + S.settings.maxFret, 'flat');
     const topStep = Math.max(8, stepOf(topSp));
-    const yTop = BOT - topStep * GAP / 2 - 36; // room for the note name
+    // Big cards show the name large left of the clef; compact ones keep it small, top right.
+    const yTop = BOT - topStep * GAP / 2 - (compact ? 36 : 8);
+    const xLeft = compact ? 0 : -72;
     const lowStep = stepOf(spell(OPEN[OPEN.length - 1], 'sharp'));
     const yBot = BOT + Math.max(7, -lowStep) * GAP / 2 + 14;
     const W = compact ? 220 : 300;
@@ -785,14 +787,16 @@ summary {
     if (step < 4) g += `<line x1="${nx + 6.6}" x2="${nx + 6.6}" y1="${y - 1}" y2="${y - GAP * 3.4}" class="s-ink" stroke-width="1.4"/>`;
     else g += `<line x1="${nx - 6.6}" x2="${nx - 6.6}" y1="${y + 1}" y2="${y + GAP * 3.4}" class="s-ink" stroke-width="1.4"/>`;
     if (sp.acc) g += `<text class="acc" x="${nx - 13}" y="${y + (sp.acc === '♭' ? 3 : 5)}" font-size="22" text-anchor="end">${sp.acc}</text>`;
-    g += `<text class="notename" x="${W - 10}" y="${yTop + 28}" text-anchor="end" font-size="${compact ? 22 : 26}">${sp.name}</text>`;
+    g += compact
+      ? `<text class="notename" x="${W - 10}" y="${yTop + 28}" text-anchor="end" font-size="22">${sp.name}</text>`
+      : `<text class="notename" x="${xLeft / 2 + 4}" y="${BOT - 2 * GAP + 19}" text-anchor="middle" font-size="56">${sp.name}</text>`;
     if (corner && !compact) {
       const label = S.settings.minFret === 0 && S.settings.maxFret === 4 ? 'I' : rangeTxt();
       const bw = label.length > 1 ? 40 : 24;
       g += `<rect x="${W - 8 - bw}" y="${yBot - 30}" width="${bw}" height="22" fill="none" class="s-ink" stroke-width="1"/>`;
       g += `<text x="${W - 8 - bw / 2}" y="${yBot - 14}" text-anchor="middle" font-size="12" class="f-ink" style="font-family:Georgia,serif">${label}</text>`;
     }
-    return `<svg class="staff" viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
+    return `<svg class="staff" viewBox="${xLeft} ${yTop} ${W - xLeft} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
   }
 
   // Tab orientation. Horizontal: highest string on top, nut on the left. Vertical: low E on the left,

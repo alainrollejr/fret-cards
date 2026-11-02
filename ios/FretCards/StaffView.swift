@@ -7,6 +7,7 @@ struct StaffView: View {
     let maxFret: Int
     var cornerLabel: String?
     var compact = false
+    var showName = true // off when the name is shown big next to the staff
 
     private let gap: CGFloat = 12
     private let bot: CGFloat = 112 // y of the bottom staff line
@@ -16,7 +17,7 @@ struct StaffView: View {
         let step = spelling.diatonic - clef.bottomLine // 0 = bottom line, 1 = space above it, ...
         let topStep = max(8, Theory.spell(instrument.open[0] + maxFret, .flat).diatonic - clef.bottomLine)
         let lowStep = Theory.spell(instrument.open.last!, .sharp).diatonic - clef.bottomLine
-        let yTop = bot - CGFloat(topStep) * gap / 2 - 38 // room for the note name
+        let yTop = bot - CGFloat(topStep) * gap / 2 - (showName ? 38 : 8) // room for the note name
         let yBot = bot + CGFloat(max(7, -lowStep)) * gap / 2 + 14
         let width: CGFloat = compact ? 220 : 300
         let height = yBot - yTop
@@ -77,7 +78,7 @@ struct StaffView: View {
             let nameText = Text(spelling.name)
                 .font(.system(size: compact ? 22 : 26, weight: .bold, design: .rounded))
                 .foregroundColor(Theme.accent)
-            c.draw(nameText, at: CGPoint(x: width - 10, y: yTop + 2), anchor: .topTrailing)
+            if showName { c.draw(nameText, at: CGPoint(x: width - 10, y: yTop + 2), anchor: .topTrailing) }
 
             if let label = cornerLabel, !compact {
                 let bw: CGFloat = label.count > 1 ? 40 : 24

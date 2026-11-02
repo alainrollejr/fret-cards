@@ -26,6 +26,13 @@ struct ContentView: View {
         }
     }
 
+    private func noteName(_ name: String, size: CGFloat) -> some View {
+        Text(name)
+            .font(.system(size: size, weight: .bold, design: .rounded))
+            .foregroundStyle(Theme.accent)
+            .fixedSize()
+    }
+
     private var settingsButton: some View {
         Button {
             showSettings = true
@@ -94,15 +101,18 @@ struct ContentView: View {
         if staff || card.type == .all || card.type == .same || card.type == .chordShape {
             Group {
                 if staff {
-                    StaffView(spelling: card.spelling, instrument: store.settings.instrument,
-                              maxFret: store.settings.maxFret, compact: true)
+                    HStack(spacing: 6) {
+                        noteName(card.spelling.name, size: 40)
+                        StaffView(spelling: card.spelling, instrument: store.settings.instrument,
+                                  maxFret: store.settings.maxFret, compact: true, showName: false)
+                    }
                 } else {
                     Text(card.chord?.name ?? card.spelling.name)
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                         .minimumScaleFactor(0.5)
                 }
             }
-            .frame(width: 170, height: 76)
+            .frame(width: 230, height: 92)
             .padding(4)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary, lineWidth: 1.5))
@@ -170,9 +180,14 @@ struct ContentView: View {
         Group {
             switch card.type {
             case .staff:
-                StaffView(spelling: card.spelling, instrument: store.settings.instrument,
-                          maxFret: store.settings.maxFret, cornerLabel: store.cornerLabel)
-                    .frame(maxHeight: 130) // keep the note small so the neck gets the room
+                // The note name sits big beside the staff; the staff itself stays modest so the neck gets the room.
+                HStack(spacing: 10) {
+                    noteName(card.spelling.name, size: 56)
+                        .padding(.leading, 8)
+                    StaffView(spelling: card.spelling, instrument: store.settings.instrument,
+                              maxFret: store.settings.maxFret, cornerLabel: store.cornerLabel, showName: false)
+                }
+                .frame(maxHeight: 150)
             case .fret:
                 FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout, marks: store.promptMarks)
             case .chordName:
