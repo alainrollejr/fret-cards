@@ -27,16 +27,31 @@ struct SettingsView: View {
                 } footer: {
                     if store.settings.instrument != .guitar { Text("Chord quizzes are for guitar.") }
                 }
-                Section("Frets") {
-                    Picker("Frets", selection: $store.settings.maxFret) {
-                        Text("Position I (0–4)").tag(4)
-                        Text("0–5").tag(5)
-                        Text("0–7").tag(7)
-                        Text("0–12").tag(12)
+                Section {
+                    Stepper("Lowest fret: \(store.settings.minFret)", value: $store.settings.minFret,
+                            in: 0...(store.settings.maxFret - Settings.minSpan))
+                    Stepper("Highest fret: \(store.settings.maxFret)", value: $store.settings.maxFret,
+                            in: (store.settings.minFret + Settings.minSpan)...Settings.fretLimit)
+                    HStack {
+                        presetButton("Whole neck", 0...12)
+                        presetButton("Position I", 0...4)
+                        presetButton("Position V", 5...8)
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
                     Toggle("Include sharps and flats", isOn: $store.settings.accidentals)
+                } header: {
+                    Text("Frets")
+                } footer: {
+                    Text("Quizzes use only frets \(store.settings.rangeText). Open strings count when the lowest fret is 0.")
+                }
+                Section {
+                    Picker("Fretboard", selection: $store.settings.layout) {
+                        ForEach(FretLayout.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Fretboard")
+                } footer: {
+                    Text("Horizontal: high e on top, scrolls sideways if it doesn't fit (turn the phone for the whole neck). Vertical: low E on the left, nut at the top.")
                 }
                 Section("Sound") {
                     Picker("Sound", selection: $store.settings.sound) {
@@ -74,5 +89,18 @@ struct SettingsView: View {
                 Button("Reset", role: .destructive) { store.resetProgress() }
             }
         }
+    }
+
+    private func presetButton(_ title: String, _ frets: ClosedRange<Int>) -> some View {
+        Button(title) {
+            var st = store.settings
+            st.minFret = frets.lowerBound
+            st.maxFret = frets.upperBound
+            store.settings = st
+        }
+        .buttonStyle(.bordered)
+        .font(.footnote)
+        .tint(store.settings.frets == frets ? Theme.accent : .secondary)
+        .frame(maxWidth: .infinity)
     }
 }

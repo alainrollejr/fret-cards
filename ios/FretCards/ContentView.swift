@@ -77,9 +77,9 @@ struct ContentView: View {
                 StaffView(spelling: card.spelling, instrument: store.settings.instrument,
                           maxFret: store.settings.maxFret, cornerLabel: store.cornerLabel)
             case .fret:
-                FretboardView(instrument: store.settings.instrument, maxFret: card.boardMax, marks: store.promptMarks)
+                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout, marks: store.promptMarks)
             case .chordName:
-                FretboardView(instrument: store.settings.instrument, maxFret: card.boardMax,
+                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout,
                               chord: card.chord?.voicing, chordKind: store.chordKind)
             case .all, .same, .chordShape:
                 VStack(spacing: 6) {
@@ -107,7 +107,7 @@ struct ContentView: View {
         } else if card.type == .chordName {
             chordGrid
         } else {
-            FretboardView(instrument: store.settings.instrument, maxFret: card.boardMax, marks: store.answerMarks,
+            FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout, marks: store.answerMarks,
                           chord: card.result?.voicing, showFingers: false,
                           onTap: card.result == nil ? { store.tap($0) } : nil)
                 .padding(.vertical, 4)
@@ -148,7 +148,7 @@ struct ContentView: View {
 
     private var chordGrid: some View {
         let card = store.card
-        let keys = Chords.keys(maxFret: store.settings.maxFret, accidentals: store.settings.accidentals)
+        let keys = Chords.keys(minFret: store.settings.minFret, maxFret: store.settings.maxFret, accidentals: store.settings.accidentals)
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
             ForEach(keys, id: \.self) { key in
                 let state: Tone = {

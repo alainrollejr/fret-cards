@@ -29,6 +29,7 @@
   --accent: #2c5f8f;
   --good: #1d8248;
   --bad: #c0352d;
+  --root: #c25e00;
   --hit: rgba(44, 95, 143, 0.12);
   --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --font-body: "Atkinson Hyperlegible", -apple-system, system-ui, sans-serif;
@@ -37,13 +38,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f1216; --card: #1a1f25; --ink: #e7ebef; --muted: #94a0ab; --line: #3a444f;
-    --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --hit: rgba(126, 174, 220, 0.16);
+    --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --root: #f08c1c; --hit: rgba(126, 174, 220, 0.16);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f1216; --card: #1a1f25; --ink: #e7ebef; --muted: #94a0ab; --line: #3a444f;
-  --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --hit: rgba(126, 174, 220, 0.16);
+  --wood: #20262d; --accent: #7eaedc; --good: #45c27a; --bad: #ff6f63; --root: #f08c1c; --hit: rgba(126, 174, 220, 0.16);
   color-scheme: dark;
 }
 
@@ -56,7 +57,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .app {
-  max-width: 520px;
+  max-width: 760px;
   margin: 0 auto;
   padding-block: calc(12px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -102,6 +103,9 @@ h1 {
   box-shadow: 0 1px 0 var(--line), 0 6px 18px -10px rgba(0, 0, 0, 0.35);
 }
 .card svg, #answer svg { display: block; width: 100%; height: auto; }
+.card svg.staff { max-width: 460px; margin: 0 auto; }
+.board-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+svg.vertical { max-width: 420px; margin: 0 auto; }
 #answer svg { background: var(--card); border-radius: 12px; border: 1px solid var(--line); touch-action: manipulation; }
 
 svg text { font-family: var(--font-body); }
@@ -138,6 +142,10 @@ svg text.notename { font-family: var(--font-display); font-weight: 700; fill: va
 .pill.good text, .pill.bad text { fill: #fff; }
 .pill.miss rect { fill: var(--card); stroke: var(--good); stroke-width: 2; stroke-dasharray: 4 3; }
 .pill.miss text { fill: var(--good); }
+.pill.root rect { fill: var(--root); }
+.pill.root text { fill: #fff; }
+.pill.miss.root rect { fill: var(--card); stroke: var(--root); }
+.pill.miss.root text { fill: var(--root); }
 .bigname { font-family: var(--font-display); font-weight: 700; font-size: 3rem; line-height: 1; text-align: center; padding-top: 6px; }
 .sub { text-align: center; color: var(--muted); font-size: 0.92rem; padding: 6px 0 4px; }
 .pill { pointer-events: none; transform-box: fill-box; transform-origin: center; animation: pop 0.18s ease-out; }
@@ -225,6 +233,11 @@ summary {
 }
 .seg input:checked + span { background: var(--ink); color: var(--card); border-color: var(--ink); }
 .seg input:disabled + span { opacity: 0.4; cursor: default; }
+.fret-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.fret-range select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font: inherit; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.presets button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
 .group-note { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .check { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
 .check input { width: 22px; height: 22px; accent-color: var(--accent); }
@@ -290,11 +303,22 @@ summary {
       </div>
       <div class="group">
         <span class="group-title">Frets</span>
-        <div class="seg" role="radiogroup" aria-label="Fret range">
-          <label><input type="radio" name="frets" id="frets-4" value="4"><span>Position I (0–4)</span></label>
-          <label><input type="radio" name="frets" id="frets-5" value="5"><span>0–5</span></label>
-          <label><input type="radio" name="frets" id="frets-7" value="7"><span>0–7</span></label>
-          <label><input type="radio" name="frets" id="frets-12" value="12"><span>0–12</span></label>
+        <div class="fret-range">
+          <label>Lowest <select id="minFret"></select></label>
+          <label>Highest <select id="maxFret"></select></label>
+          <div class="presets">
+            <button type="button" data-range="0-12">Whole neck</button>
+            <button type="button" data-range="0-4">Position I</button>
+            <button type="button" data-range="5-8">Position V</button>
+          </div>
+        </div>
+        <p class="group-note">Quizzes use only these frets. Open strings count when the lowest fret is 0.</p>
+      </div>
+      <div class="group">
+        <span class="group-title">Fretboard</span>
+        <div class="seg" role="radiogroup" aria-label="Fretboard layout">
+          <label><input type="radio" name="layout" id="layout-horizontal" value="horizontal"><span>Horizontal</span></label>
+          <label><input type="radio" name="layout" id="layout-vertical" value="vertical"><span>Vertical (low E left)</span></label>
         </div>
       </div>
       <div class="group">
@@ -357,7 +381,7 @@ summary {
   const pcOf = (m) => ((m % 12) + 12) % 12;
 
   const defaults = () => ({
-    settings: { mode: 'staff', maxFret: 4, acc: false, sound: 'guitar', instrument: 'guitar', chordPlay: 'both' },
+    settings: { mode: 'staff', minFret: 0, maxFret: 12, layout: 'horizontal', acc: false, sound: 'guitar', instrument: 'guitar', chordPlay: 'both' },
     stats: { right: 0, total: 0, streak: 0, best: 0 },
     w: {},
   });
@@ -369,6 +393,13 @@ summary {
       S = Object.assign(d, saved, { settings: Object.assign(d.settings, saved.settings) });
     }
   } catch (e) {}
+  const FRET_LIMIT = 15, MIN_SPAN = 3; // at least 4 frets on the board
+  function clampFrets() {
+    const st = S.settings;
+    st.maxFret = Math.min(FRET_LIMIT, Math.max(MIN_SPAN, +st.maxFret || 0));
+    st.minFret = Math.min(st.maxFret - MIN_SPAN, Math.max(0, +st.minFret || 0));
+  }
+  clampFrets();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
   function applyInstrument() {
@@ -522,16 +553,20 @@ summary {
     return { li, acc, oct, name: LETTERS[li] + acc };
   }
 
-  function positionsFor(midi, max = S.settings.maxFret) {
+  function positionsFor(midi, lo = S.settings.minFret, hi = S.settings.maxFret) {
     const out = [];
     OPEN.forEach((o, s) => {
       const f = midi - o;
-      if (f >= 0 && f <= max) out.push({ s, f });
+      if (f >= lo && f <= hi) out.push({ s, f });
     });
     return out;
   }
-  // In standard tuning, unisons across strings need at least frets 0–5.
-  const sameMax = () => Math.max(5, S.settings.maxFret);
+  // In standard tuning, unisons across strings need at least six frets (e.g. 0–5).
+  function sameRange() {
+    const hi = Math.min(FRET_LIMIT, Math.max(S.settings.maxFret, S.settings.minFret + 5));
+    return [Math.min(S.settings.minFret, hi - 5), hi];
+  }
+  const rangeTxt = () => `${S.settings.minFret}–${S.settings.maxFret}`;
   const describe = ({ s, f }) => f === 0 ? `open ${STRING_NAMES[s]} string` : `${STRING_NAMES[s]} string, fret ${f}`;
 
   function staffPool() {
@@ -545,7 +580,7 @@ summary {
   }
   function fretPool() {
     const out = [];
-    for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= S.settings.maxFret; f++) {
+    for (let s = 0; s < OPEN.length; s++) for (let f = S.settings.minFret; f <= S.settings.maxFret; f++) {
       if (!S.settings.acc && !isNat(pcOf(OPEN[s] + f))) continue;
       out.push(`f${s}-${f}`);
     }
@@ -557,11 +592,11 @@ summary {
     return out;
   }
   function samePool() {
-    const max = sameMax(), out = [];
-    for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= max; f++) {
+    const [lo, hi] = sameRange(), out = [];
+    for (let s = 0; s < OPEN.length; s++) for (let f = lo; f <= hi; f++) {
       const m = OPEN[s] + f;
       if (!S.settings.acc && !isNat(pcOf(m))) continue;
-      if (positionsFor(m, max).length > 1) out.push(`u${s}-${f}`);
+      if (positionsFor(m, lo, hi).length > 1) out.push(`u${s}-${f}`);
     }
     return out;
   }
@@ -582,37 +617,44 @@ summary {
     { pc: 4, q: 'm', frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0] },
     { pc: 9, q: 'm', frets: [null, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
   ];
-  // Barre shapes, moved up the neck by r frets; the root sits on the low E or A string.
+  // Shapes moved up the neck by r frets. The root sits on the low E, A or D string.
   const MOVABLE = [
     { shape: 'E', q: 'M', base: 4, frets: [0, 2, 2, 1, 0, 0], fingers: [1, 3, 4, 2, 1, 1], barre: [0, 5] },
     { shape: 'E', q: 'm', base: 4, frets: [0, 2, 2, 0, 0, 0], fingers: [1, 3, 4, 1, 1, 1], barre: [0, 5] },
     { shape: 'A', q: 'M', base: 9, frets: [null, 0, 2, 2, 2, 0], fingers: [0, 1, 2, 3, 4, 1], barre: [1, 5] },
     { shape: 'A', q: 'm', base: 9, frets: [null, 0, 2, 2, 1, 0], fingers: [0, 1, 3, 4, 2, 1], barre: [1, 5] },
+    { shape: 'C', q: 'M', base: 0, frets: [null, 3, 2, 0, 1, 0], fingers: [0, 4, 3, 1, 2, 1], barre: [3, 5] },
+    { shape: 'D', q: 'M', base: 2, frets: [null, null, 0, 2, 3, 2], fingers: [0, 0, 1, 2, 4, 3], barre: null },
+    { shape: 'D', q: 'm', base: 2, frets: [null, null, 0, 2, 3, 1], fingers: [0, 0, 1, 3, 4, 2], barre: null },
   ];
-  // Every voicing that fits in frets 0–max, converted to diagram order (high string first).
-  function voicings(max) {
+  const topFret = (frets) => Math.max(...frets.filter((f) => f !== null));
+  // Every voicing whose notes fall in frets lo–hi, in diagram order (high string first). Open strings need lo = 0.
+  function voicings(lo, hi) {
     const flip = (a) => a.slice().reverse();
-    const out = OPEN_CHORDS.filter((c) => Math.max(...c.frets.filter((f) => f !== null)) <= max)
+    const out = lo > 0 ? [] : OPEN_CHORDS.filter((c) => topFret(c.frets) <= hi)
       .map((c) => ({ pc: c.pc, q: c.q, frets: flip(c.frets), fingers: flip(c.fingers), barre: null, where: 'open chord' }));
-    for (const m of MOVABLE) for (let r = 1; r + 2 <= max; r++) {
+    for (const m of MOVABLE) for (let r = Math.max(1, lo); r + topFret(m.frets) <= hi; r++) {
       out.push({
         pc: (m.base + r) % 12, q: m.q,
         frets: flip(m.frets.map((f) => (f === null ? null : f + r))),
         fingers: flip(m.fingers),
-        barre: { f: r, s1: 5 - m.barre[1], s2: 5 - m.barre[0] },
-        where: `${m.shape}-shape barre at fret ${r}`,
+        barre: m.barre && { f: r, s1: 5 - m.barre[1], s2: 5 - m.barre[0] },
+        where: `${m.shape}-shape${m.barre ? ' barre' : ''} at fret ${r}`,
       });
     }
     return out;
   }
+  const rangeVoicings = () => voicings(S.settings.minFret, S.settings.maxFret);
   const fretted = (v) => v.frets.map((f, s) => ({ s, f })).filter((p) => p.f > 0);
+  // Fretted notes that are the chord's root (any octave).
+  const isRoot = (v, p) => pcOf(OPEN[p.s] + p.f) === v.pc;
   const tabOf = (v) => {
     const t = v.frets.slice().reverse().map((f) => (f === null ? 'x' : f));
     return t.some((f) => f > 9) ? t.join('-') : t.join('');
   };
   function chordPool(prefix) {
     const seen = new Set();
-    for (const v of voicings(S.settings.maxFret)) if (S.settings.acc || isNat(v.pc)) seen.add(`${v.pc}${v.q}`);
+    for (const v of rangeVoicings()) if (S.settings.acc || isNat(v.pc)) seen.add(`${v.pc}${v.q}`);
     return [...seen].sort((a, b) => parseInt(a) - parseInt(b) || (a.slice(-1) === 'M' ? -1 : 1)).map((k) => prefix + k);
   }
   const isChord = (t) => t === 'chordName' || t === 'chordShape';
@@ -632,7 +674,8 @@ summary {
   function newCard() {
     clearTimeout(advanceTimer);
     let mode = S.settings.mode;
-    if (isChord(mode) && S.settings.instrument !== 'guitar') mode = 'staff';
+    // Chord quizzes are guitar-only; on bass, or with no chord in the range, they fall back to the staff.
+    if (isChord(mode) && (S.settings.instrument !== 'guitar' || !chordPool('').length)) mode = 'staff';
     const types = ['staff', 'fret', 'all', 'same'];
     const type = mode === 'mix' ? types[Math.floor(Math.random() * types.length)] : mode;
     const pref = Math.random() < 0.5 ? 'sharp' : 'flat';
@@ -640,24 +683,27 @@ summary {
     const key = pick(pools[type]());
     if (isChord(type)) {
       const pc = parseInt(key.slice(1)), q = key.slice(-1);
-      const vs = voicings(S.settings.maxFret).filter((v) => v.pc === pc && v.q === q);
+      const vs = rangeVoicings().filter((v) => v.pc === pc && v.q === q);
+      // Move around the neck: avoid showing the same shape twice in a row.
+      const last = cur && cur.v ? tabOf(cur.v) : '';
+      const fresh = vs.length > 1 ? vs.filter((v) => tabOf(v) !== last) : vs;
       const name = CHORD_NAMES[q][pc];
-      cur = { type, key, pc, q, name, pref: name.includes('♭') ? 'flat' : 'sharp', vs, v: vs[Math.floor(Math.random() * vs.length)], sel: [], result: null };
+      cur = { type, key, pc, q, name, pref: name.includes('♭') ? 'flat' : 'sharp', vs, v: fresh[Math.floor(Math.random() * fresh.length)], sel: [], result: null };
     } else if (type === 'staff') {
       const midi = +key.slice(1);
       cur = { type, key, midi, pref, sp: spell(midi, pref), result: null };
     } else if (type === 'all') {
       const pc = +key.slice(1);
-      const max = S.settings.maxFret;
+      const lo = S.settings.minFret, hi = S.settings.maxFret;
       const targets = [];
-      for (let s = 0; s < OPEN.length; s++) for (let f = 0; f <= max; f++) if (pcOf(OPEN[s] + f) === pc) targets.push({ s, f });
-      cur = { type, key, pc, max, pref, sp: spell(pc + 60, pref), targets, found: [], wrong: [], result: null };
+      for (let s = 0; s < OPEN.length; s++) for (let f = lo; f <= hi; f++) if (pcOf(OPEN[s] + f) === pc) targets.push({ s, f });
+      cur = { type, key, pc, lo, hi, pref, sp: spell(pc + 60, pref), targets, found: [], wrong: [], result: null };
     } else if (type === 'same') {
       const [s, f] = key.slice(1).split('-').map(Number);
       const midi = OPEN[s] + f;
-      const max = sameMax();
-      const targets = positionsFor(midi, max).filter((p) => p.s !== s);
-      cur = { type, key, s, f, midi, max, pref, sp: spell(midi, pref), targets, found: [], wrong: [], result: null };
+      const [lo, hi] = sameRange();
+      const targets = positionsFor(midi, lo, hi).filter((p) => p.s !== s);
+      cur = { type, key, s, f, midi, lo, hi, pref, sp: spell(midi, pref), targets, found: [], wrong: [], result: null };
     } else {
       const [s, f] = key.slice(1).split('-').map(Number);
       const midi = OPEN[s] + f;
@@ -702,77 +748,102 @@ summary {
     if (sp.acc) g += `<text class="acc" x="${nx - 13}" y="${y + (sp.acc === '♭' ? 3 : 5)}" font-size="22" text-anchor="end">${sp.acc}</text>`;
     g += `<text class="notename" x="${W - 10}" y="${yTop + 28}" text-anchor="end" font-size="${compact ? 22 : 26}">${sp.name}</text>`;
     if (corner && !compact) {
-      const label = S.settings.maxFret === 4 ? 'I' : `0–${S.settings.maxFret}`;
+      const label = S.settings.minFret === 0 && S.settings.maxFret === 4 ? 'I' : rangeTxt();
       const bw = label.length > 1 ? 40 : 24;
       g += `<rect x="${W - 8 - bw}" y="${yBot - 30}" width="${bw}" height="22" fill="none" class="s-ink" stroke-width="1"/>`;
       g += `<text x="${W - 8 - bw / 2}" y="${yBot - 14}" text-anchor="middle" font-size="12" class="f-ink" style="font-family:Georgia,serif">${label}</text>`;
     }
-    return `<svg viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
+    return `<svg class="staff" viewBox="0 ${yTop} ${W} ${yBot - yTop}" role="img" aria-label="Note on ${CLEF} staff">${g}</svg>`;
   }
 
-  function fretSVG({ marks = [], interactive = false, max = S.settings.maxFret, chord = null, chordKind = '', fingers = true }) {
-    const W = 340, xs = 16, x0 = 56, x1 = 332, // tab labels sit left of xs
-      fw = (x1 - x0) / max;
+  // Tab orientation. Horizontal: highest string on top, nut on the left. Vertical: low E on the left,
+  // nut at the top. Positions along the neck are u, across the strings v; pt() maps them to the drawing.
+  function fretSVG({ marks = [], interactive = false, lo = S.settings.minFret, hi = S.settings.maxFret, chord = null, chordKind = '', fingers = true }) {
+    const vert = S.settings.layout === 'vertical';
     const n = OPEN.length, last = n - 1;
-    const y0 = 34, sp = 31, H = y0 + last * sp + 22;
-    const cx = (f) => (f === 0 ? (xs + x0) / 2 - 1 : x0 + (f - 0.5) * fw);
-    const sy = (s) => y0 + s * sp;
+    const hasOpen = lo === 0, first = Math.max(1, lo), cells = hi - first + 1;
+    const uLabel = vert ? 10 : 8, uStr = vert ? 22 : 16;
+    const u0 = vert ? (hasOpen ? 62 : 30) : (hasOpen ? 56 : 24); // nut or first fret wire
+    const fw = vert ? 46 : Math.max(40, (340 - u0 - 8) / cells);
+    const uEnd = u0 + cells * fw;
+    const sp = vert ? Math.min(64, 308 / n) : 31;
+    const vLeft = 26 + (308 - n * sp) / 2;
+    const sv = (s) => (vert ? vLeft + (last - s + 0.5) * sp : 34 + s * sp);
+    const vNum = vert ? vLeft - 13 : 14;
+    const W = vert ? 340 : uEnd + 8, H = vert ? uEnd + 10 : sv(last) + 22;
+    const cu = (f) => (f === 0 ? (uStr + u0) / 2 - 1 : u0 + (f - first + 0.5) * fw);
+    const pt = (u, v) => (vert ? [v, u] : [u, v]);
+    const rect = (ua, ub, va, vb, attrs) => {
+      const [x1, y1] = pt(ua, va), [x2, y2] = pt(ub, vb);
+      return `<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}" width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}" ${attrs}/>`;
+    };
+    const line = (ua, va, ub, vb, w) => {
+      const [x1, y1] = pt(ua, va), [x2, y2] = pt(ub, vb);
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="s-ink" stroke-width="${w}"/>`;
+    };
+    const text = (u, v, t, attrs) => { const [x, y] = pt(u, v); return `<text x="${x}" y="${y + 4.2}" text-anchor="middle" ${attrs}>${t}</text>`; };
+    const vMin = Math.min(sv(0), sv(last)), vMax = Math.max(sv(0), sv(last));
     let g = '';
     // inlay dots
-    const dot = (f, yy) => { g += `<circle cx="${cx(f)}" cy="${yy}" r="${Math.min(5, fw / 6)}" class="f-line"/>`; };
-    const mid = sy(last / 2);
-    for (const f of [3, 5, 7, 9]) if (f <= max) dot(f, mid);
-    if (max >= 12) { dot(12, mid - sp); dot(12, mid + sp); }
-    // fret numbers
-    const fs = max > 7 ? 10 : 13;
-    for (let f = 1; f <= max; f++) g += `<text x="${cx(f)}" y="18" text-anchor="middle" font-size="${fs}" class="f-muted">${f}</text>`;
-    // frets and nut
-    for (let f = 1; f <= max; f++) {
-      const x = x0 + f * fw;
-      g += `<line x1="${x}" x2="${x}" y1="${sy(0) - 6}" y2="${sy(last) + 6}" class="s-ink" stroke-width="1.4"/>`;
+    const mid = (vMin + vMax) / 2;
+    const dot = (f, v) => { const [x, y] = pt(cu(f), v); g += `<circle cx="${x}" cy="${y}" r="${Math.min(5, fw / 6)}" class="f-line"/>`; };
+    for (const f of [3, 5, 7, 9, 15]) if (f >= first && f <= hi) dot(f, mid);
+    if (first <= 12 && hi >= 12) { dot(12, mid - sp); dot(12, mid + sp); }
+    // fret numbers, frets, nut
+    const fs = fw < 50 ? 11 : 13;
+    for (let f = first; f <= hi; f++) g += text(cu(f), vNum, f, `font-size="${fs}" class="f-muted"`);
+    for (let i = 0; i <= cells; i++) {
+      const u = u0 + i * fw;
+      g += i === 0 && hasOpen ? rect(u - 5, u, vMin - 7, vMax + 7, 'class="f-ink"') : line(u, vMin - 6, u, vMax + 6, 1.4);
     }
-    g += `<rect x="${x0 - 5}" y="${sy(0) - 7}" width="5" height="${last * sp + 14}" class="f-ink"/>`;
     // strings
     for (let s = 0; s < n; s++) {
-      g += `<line x1="${xs}" x2="${x1}" y1="${sy(s)}" y2="${sy(s)}" class="s-ink" stroke-width="${STRING_WIDTHS[s]}"/>`;
-      g += `<text x="${xs / 2}" y="${sy(s) + 4.2}" text-anchor="middle" font-size="12" font-weight="600" class="f-muted">${TAB_NAMES[s]}</text>`;
+      g += line(uStr, sv(s), uEnd, sv(s), STRING_WIDTHS[s]);
+      g += text(uLabel, sv(s), TAB_NAMES[s], 'font-size="12" font-weight="600" class="f-muted"');
     }
     // tap targets
     if (interactive) {
-      for (let s = 0; s < n; s++) for (let f = 0; f <= max; f++) {
-        const x = f === 0 ? 0 : x0 + (f - 1) * fw;
-        const w = f === 0 ? x0 - 5 : fw;
-        g += `<rect class="hit" data-s="${s}" data-f="${f}" x="${x}" y="${sy(s) - sp / 2}" width="${w}" height="${sp}"/>`;
+      for (let s = 0; s < n; s++) for (let f = hasOpen ? 0 : first; f <= hi; f++) {
+        const ua = f === 0 ? uStr - 12 : u0 + (f - first) * fw;
+        const ub = f === 0 ? u0 - 5 : ua + fw;
+        g += rect(ua, ub, sv(s) - sp / 2, sv(s) + sp / 2, `class="hit" data-s="${s}" data-f="${f}"`);
       }
     }
-    // chord shape: open/muted signs left of the nut, a barre, finger numbers
+    // chord shape: open/muted signs before the nut, a barre, finger numbers, roots in their own colour
     if (chord) {
-      for (let s = 0; s < n; s++) {
-        const x = cx(0), y = sy(s);
+      if (hasOpen) for (let s = 0; s < n; s++) {
+        const [x, y] = pt(cu(0), sv(s));
         if (chord.frets[s] === 0) g += `<circle cx="${x}" cy="${y}" r="6" fill="var(--card)" class="s-ink" stroke-width="1.6"/>`;
         else if (chord.frets[s] === null) g += `<rect x="${x - 8}" y="${y - 8}" width="16" height="16" fill="var(--card)"/><path d="M${x - 5} ${y - 5}L${x + 5} ${y + 5}M${x + 5} ${y - 5}L${x - 5} ${y + 5}" class="s-ink" stroke-width="1.8"/>`;
       }
       if (fingers) {
         const b = chord.barre;
         if (b) {
-          g += `<g class="pill ${chordKind}"><rect x="${cx(b.f) - 12}" y="${sy(b.s1) - 12}" width="24" height="${(b.s2 - b.s1) * sp + 24}" rx="12"/>`
-            + `<text x="${cx(b.f)}" y="${sy((b.s1 + b.s2) / 2) + 4.3}" text-anchor="middle" font-size="13">1</text></g>`;
+          const va = Math.min(sv(b.s1), sv(b.s2)) - 12, vb = Math.max(sv(b.s1), sv(b.s2)) + 12;
+          g += `<g class="pill ${chordKind}">${rect(cu(b.f) - 12, cu(b.f) + 12, va, vb, 'rx="12"')}`
+            + `${text(cu(b.f), (va + vb) / 2 + 0.1, '1', 'font-size="13"')}</g>`;
         }
         chord.frets.forEach((f, s) => {
-          if (!(f > 0) || (b && f === b.f && s >= b.s1 && s <= b.s2)) return;
-          marks = marks.concat({ s, f, kind: chordKind, label: String(chord.fingers[s]), round: true });
+          if (!(f > 0)) return;
+          const root = isRoot(chord, { s, f });
+          if (b && f === b.f && s >= b.s1 && s <= b.s2 && !root) return;
+          marks = marks.concat({ s, f, kind: chordKind, label: String(chord.fingers[s]), round: true, root });
         });
       }
     }
     // note pills, styled like the printed cards
     for (const m of marks) {
-      const w = m.round ? 24 : m.f === 0 ? 32 : Math.min(44, fw - 5);
+      const w = m.round ? 24 : vert ? Math.min(44, sp - 6) : m.f === 0 ? 32 : Math.min(44, fw - 5);
       const h = m.round ? 24 : 22;
       const t = m.round ? 13 : m.label.length > 1 && w < 30 ? 9.5 : 12.5;
-      g += `<g class="pill ${m.kind || ''}"><rect x="${cx(m.f) - w / 2}" y="${sy(m.s) - h / 2}" width="${w}" height="${h}" rx="${m.round ? 12 : 7}"/>`
-        + `<text x="${cx(m.f)}" y="${sy(m.s) + 4.3}" text-anchor="middle" font-size="${t}">${m.label}</text></g>`;
+      const [x, y] = pt(cu(m.f), sv(m.s));
+      g += `<g class="pill ${m.kind || ''}${m.root ? ' root' : ''}"><rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${m.round ? 12 : 7}"/>`
+        + `<text x="${x}" y="${y + 4.3}" text-anchor="middle" font-size="${t}">${m.label}</text></g>`;
     }
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${S.settings.instrument === 'bass' ? 'Bass' : 'Guitar'} fretboard, frets 0 to ${max}">${g}</svg>`;
+    const label = `${S.settings.instrument === 'bass' ? 'Bass' : 'Guitar'} fretboard, frets ${lo} to ${hi}`;
+    // Horizontal boards keep frets at a usable size and scroll sideways on narrow screens.
+    const svg = `<svg class="${vert ? 'vertical' : ''}" viewBox="0 0 ${W} ${H}" ${vert ? '' : `style="min-width:${Math.round(W * 0.85)}px"`} role="img" aria-label="${label}">${g}</svg>`;
+    return vert ? svg : `<div class="board-scroll">${svg}</div>`;
   }
 
   // ---------- rendering ----------
@@ -857,17 +928,17 @@ summary {
     const nameAt = (p) => spell(OPEN[p.s] + p.f, cur.pref).name;
     if (cur.type === 'all') {
       $('prompt-label').textContent = `Tap every ${name}`;
-      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">${n} spots on frets 0–${cur.max}, all strings and octaves</div>`;
+      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">${n} spots on frets ${cur.lo}–${cur.hi}, all strings and octaves</div>`;
     } else {
       $('prompt-label').textContent = 'Tap the same pitch on other strings';
-      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">Marked on the ${describe(cur)}. Find ${n} more ${n === 1 ? 'spot' : 'spots'} with this exact pitch on frets 0–${cur.max}</div>`;
+      $('prompt').innerHTML = `<div class="bigname">${name}</div><div class="sub">Marked on the ${describe(cur)}. Find ${n} more ${n === 1 ? 'spot' : 'spots'} with this exact pitch on frets ${cur.lo}–${cur.hi}</div>`;
     }
     const marks = [];
     if (cur.type === 'same') marks.push({ s: cur.s, f: cur.f, kind: '', label: name });
     cur.found.forEach((p) => marks.push({ ...p, kind: 'good', label: name }));
     cur.wrong.forEach((p) => marks.push({ ...p, kind: 'bad', label: nameAt(p) }));
     if (r) cur.targets.filter((p) => !has(cur.found, p)).forEach((p) => marks.push({ ...p, kind: 'miss', label: name }));
-    $('answer').innerHTML = fretSVG({ marks, interactive: !r, max: cur.max });
+    $('answer').innerHTML = fretSVG({ marks, interactive: !r, lo: cur.lo, hi: cur.hi });
 
     const fb = $('feedback'), next = $('next');
     const wrongTxt = cur.wrong.length ? `, ${cur.wrong.length} wrong ${cur.wrong.length === 1 ? 'tap' : 'taps'}` : '';
@@ -930,7 +1001,7 @@ summary {
       }
     } else {
       $('prompt-label').textContent = `Fret ${cur.name}`;
-      $('prompt').innerHTML = `<div class="bigname">${cur.name}</div><div class="sub">${cur.q === 'M' ? 'Major' : 'Minor'} chord on frets 0–${S.settings.maxFret}. Tap the fretted notes; open and muted strings need no tap.</div>`;
+      $('prompt').innerHTML = `<div class="bigname">${cur.name}</div><div class="sub">${cur.q === 'M' ? 'Major' : 'Minor'} chord on frets ${rangeTxt()}. Tap the fretted notes; open and muted strings need no tap.</div>`;
       if (!r) {
         const marks = cur.sel.map((p) => ({ ...p, kind: '', label: nameAt(p) }));
         $('answer').innerHTML = fretSVG({ marks, interactive: true });
@@ -945,7 +1016,7 @@ summary {
         return;
       }
       const marks = [];
-      fretted(r.v).forEach((p) => marks.push({ ...p, kind: has(cur.sel, p) ? 'good' : 'miss', label: String(r.v.fingers[p.s]), round: true }));
+      fretted(r.v).forEach((p) => marks.push({ ...p, kind: has(cur.sel, p) ? 'good' : 'miss', label: String(r.v.fingers[p.s]), round: true, root: isRoot(r.v, p) }));
       cur.sel.filter((p) => !has(fretted(r.v), p)).forEach((p) => marks.push({ ...p, kind: 'bad', label: nameAt(p) }));
       $('answer').innerHTML = fretSVG({ marks, chord: r.v, fingers: false });
       if (r.ok) { fb.className = 'feedback good'; fb.innerHTML = `Right, ${cur.name}. <span class="hint">${shapeTxt(r.v)}</span>`; }
@@ -1068,7 +1139,12 @@ summary {
 
   function syncSettingsUI() {
     $('mode-' + S.settings.mode).checked = true;
-    $('frets-' + S.settings.maxFret).checked = true;
+    const opts = (from, to, sel) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+      .map((f) => `<option value="${f}"${f === sel ? ' selected' : ''}>${f}</option>`).join('');
+    $('minFret').innerHTML = opts(0, FRET_LIMIT - MIN_SPAN, S.settings.minFret);
+    $('maxFret').innerHTML = opts(MIN_SPAN, FRET_LIMIT, S.settings.maxFret);
+    document.querySelectorAll('.presets button').forEach((b) => b.classList.toggle('on', b.dataset.range === `${S.settings.minFret}-${S.settings.maxFret}`));
+    $('layout-' + S.settings.layout).checked = true;
     $('acc').checked = S.settings.acc;
     $('sound-' + S.settings.sound).checked = true;
     $('chordPlay-' + S.settings.chordPlay).checked = true;
@@ -1083,8 +1159,18 @@ summary {
   document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener('change', () => {
     S.settings.mode = el.value; save(); newCard();
   }));
-  document.querySelectorAll('input[name="frets"]').forEach((el) => el.addEventListener('change', () => {
-    S.settings.maxFret = +el.value; save(); newCard();
+  // Changing one end of the range pushes the other along to keep at least four frets.
+  const setFrets = (lo, hi) => {
+    S.settings.minFret = lo; S.settings.maxFret = hi; clampFrets(); save(); syncSettingsUI(); newCard();
+  };
+  $('minFret').addEventListener('change', (e) => { const lo = +e.target.value; setFrets(lo, Math.max(S.settings.maxFret, lo + MIN_SPAN)); });
+  $('maxFret').addEventListener('change', (e) => { const hi = +e.target.value; setFrets(Math.min(S.settings.minFret, hi - MIN_SPAN), hi); });
+  document.querySelectorAll('.presets button').forEach((b) => b.addEventListener('click', () => {
+    const [lo, hi] = b.dataset.range.split('-').map(Number);
+    setFrets(lo, hi);
+  }));
+  document.querySelectorAll('input[name="layout"]').forEach((el) => el.addEventListener('change', () => {
+    S.settings.layout = el.value; save(); render();
   }));
   $('acc').addEventListener('change', (e) => { S.settings.acc = e.target.checked; save(); newCard(); });
   document.querySelectorAll('input[name="sound"]').forEach((el) => el.addEventListener('change', () => {

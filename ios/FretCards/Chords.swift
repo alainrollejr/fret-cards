@@ -35,6 +35,9 @@ struct Voicing: Equatable {
     var key: String { "\(pc)\(quality.rawValue)" }
     var fretted: [Spot] { frets.enumerated().compactMap { s, f in (f ?? 0) > 0 ? Spot(s: s, f: f!) : nil } }
 
+    /// Fretted notes that are the chord's root (any octave).
+    func roots(open: [Int]) -> [Spot] { fretted.filter { Theory.pitchClass(open[$0.s] + $0.f) == pc } }
+
     /// Tab notation, low E first, e.g. x32010.
     var tab: String {
         let t = frets.reversed().map { $0.map(String.init) ?? "x" }
@@ -73,14 +76,15 @@ enum Chords {
         Shape(pc: 9, q: .minor, frets: [nil, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0]),
     ]
 
-    // Barre shapes, moved up the neck by r frets; the root sits on the low E or A string.
+    // Shapes moved up the neck by r frets. The root sits on the low E, A or D string.
     private struct Movable {
         let name: String
-        let base: Int
+        let base: Int // root pitch class with r = 0
         let q: ChordQuality
         let frets: [Int?]
         let fingers: [Int]
-        let barre: ClosedRange<Int>
+        let barre: ClosedRange<Int>?
+        var span: Int { frets.compactMap { $0 }.max()! }
     }
 
     private static let movableShapes = [
@@ -88,29 +92,33 @@ enum Chords {
         Movable(name: "E", base: 4, q: .minor, frets: [0, 2, 2, 0, 0, 0], fingers: [1, 3, 4, 1, 1, 1], barre: 0...5),
         Movable(name: "A", base: 9, q: .major, frets: [nil, 0, 2, 2, 2, 0], fingers: [0, 1, 2, 3, 4, 1], barre: 1...5),
         Movable(name: "A", base: 9, q: .minor, frets: [nil, 0, 2, 2, 1, 0], fingers: [0, 1, 3, 4, 2, 1], barre: 1...5),
+        Movable(name: "C", base: 0, q: .major, frets: [nil, 3, 2, 0, 1, 0], fingers: [0, 4, 3, 1, 2, 1], barre: 3...5),
+        Movable(name: "D", base: 2, q: .major, frets: [nil, nil, 0, 2, 3, 2], fingers: [0, 0, 1, 2, 4, 3], barre: nil),
+        Movable(name: "D", base: 2, q: .minor, frets: [nil, nil, 0, 2, 3, 1], fingers: [0, 0, 1, 3, 4, 2], barre: nil),
     ]
 
-    /// Every guitar voicing that fits in frets 0–maxFret.
-    static func voicings(maxFret: Int) -> [Voicing] {
-        var out = openShapes
+    /// Every guitar voicing whose notes all fall in frets minFret–maxFret. Open strings need minFret 0.
+    static func voicings(minFret: Int, maxFret: Int) -> [Voicing] {
+        var out = minFret > 0 ? [] : openShapes
             .filter { $0.frets.compactMap { $0 }.max()! <= maxFret }
             .map { Voicing(pc: $0.pc, quality: $0.q, frets: $0.frets.reversed(), fingers: $0.fingers.reversed(), barre: nil, place: "open chord") }
         for m in movableShapes {
-            for r in stride(from: 1, through: maxFret - 2, by: 1) {
+            for r in stride(from: max(1, minFret), through: maxFret - m.span, by: 1) {
+                let kind = m.barre == nil ? "shape" : "shape barre"
                 out.append(Voicing(pc: (m.base + r) % 12, quality: m.q,
                                    frets: m.frets.map { $0.map { $0 + r } }.reversed(),
                                    fingers: m.fingers.reversed(),
-                                   barre: Barre(f: r, s1: 5 - m.barre.upperBound, s2: 5 - m.barre.lowerBound),
-                                   place: "\(m.name)-shape barre at fret \(r)"))
+                                   barre: m.barre.map { Barre(f: r, s1: 5 - $0.upperBound, s2: 5 - $0.lowerBound) },
+                                   place: "\(m.name)-\(kind) at fret \(r)"))
             }
         }
         return out
     }
 
     /// Chord keys (e.g. "0M", "9m") available in the range, sorted by root then major first.
-    static func keys(maxFret: Int, accidentals: Bool) -> [String] {
+    static func keys(minFret: Int, maxFret: Int, accidentals: Bool) -> [String] {
         var seen: [(Int, ChordQuality)] = []
-        for v in voicings(maxFret: maxFret) where accidentals || Theory.isNatural(v.pc) {
+        for v in voicings(minFret: minFret, maxFret: maxFret) where accidentals || Theory.isNatural(v.pc) {
             if !seen.contains(where: { $0 == (v.pc, v.quality) }) { seen.append((v.pc, v.quality)) }
         }
         return seen.sorted { $0.0 != $1.0 ? $0.0 < $1.0 : $0.1 == .major }.map { "\($0.0)\($0.1.rawValue)" }
