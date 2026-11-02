@@ -1,9 +1,15 @@
 import SwiftUI
 
 enum FretLayout: String, CaseIterable, Codable, Identifiable {
-    case horizontal, vertical
+    case auto, horizontal, vertical
     var id: String { rawValue }
-    var title: String { self == .horizontal ? "Horizontal" : "Vertical" }
+    var title: String {
+        switch self {
+        case .auto: return "Auto"
+        case .horizontal: return "Horizontal"
+        case .vertical: return "Vertical"
+        }
+    }
 }
 
 struct FretMark {
@@ -21,7 +27,7 @@ struct FretMark {
 struct FretboardView: View {
     let instrument: Instrument
     let frets: ClosedRange<Int>
-    var layout = FretLayout.horizontal
+    var layout = FretLayout.auto
     var marks: [FretMark] = []
     var chord: Voicing?
     var chordKind: FretMark.Kind = .question
@@ -90,7 +96,12 @@ struct FretboardView: View {
     }
 
     var body: some View {
-        let g = Geometry(n: instrument.open.count, frets: frets, layout: layout, available: available)
+        // Auto: horizontal when every fret fits across the screen (landscape), otherwise vertical.
+        let wide = Geometry(n: instrument.open.count, frets: frets, layout: .horizontal, available: available)
+        let fits = wide.size.width <= available + 0.5
+        let g = layout == .vertical || (layout == .auto && !fits)
+            ? Geometry(n: instrument.open.count, frets: frets, layout: .vertical, available: available)
+            : wide
         Group {
             if !g.vertical && g.size.width > available + 0.5 {
                 ScrollView(.horizontal) { board(g) }

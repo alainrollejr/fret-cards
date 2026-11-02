@@ -20,6 +20,8 @@ targets:
           - NotoMusic-Regular.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

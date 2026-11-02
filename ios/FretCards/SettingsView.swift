@@ -44,14 +44,14 @@ struct SettingsView: View {
                     Text("Quizzes use only frets \(store.settings.rangeText). Open strings count when the lowest fret is 0.")
                 }
                 Section {
-                    Picker("Fretboard", selection: $store.settings.layout) {
+                    Picker("Fretboard", selection: $store.settings.fretLayout) {
                         ForEach(FretLayout.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 } header: {
                     Text("Fretboard")
                 } footer: {
-                    Text("Horizontal: high e on top, scrolls sideways if it doesn't fit (turn the phone for the whole neck). Vertical: low E on the left, nut at the top.")
+                    Text("Auto: the neck runs top to bottom when the phone is upright and across when you turn it sideways. Horizontal has high e on top; vertical has low E on the left and the nut at the top.")
                 }
                 Section("Sound") {
                     Picker("Sound", selection: $store.settings.sound) {

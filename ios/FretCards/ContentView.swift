@@ -77,9 +77,9 @@ struct ContentView: View {
                 StaffView(spelling: card.spelling, instrument: store.settings.instrument,
                           maxFret: store.settings.maxFret, cornerLabel: store.cornerLabel)
             case .fret:
-                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout, marks: store.promptMarks)
+                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout, marks: store.promptMarks)
             case .chordName:
-                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout,
+                FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout,
                               chord: card.chord?.voicing, chordKind: store.chordKind)
             case .all, .same, .chordShape:
                 VStack(spacing: 6) {
@@ -107,7 +107,7 @@ struct ContentView: View {
         } else if card.type == .chordName {
             chordGrid
         } else {
-            FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.layout, marks: store.answerMarks,
+            FretboardView(instrument: store.settings.instrument, frets: card.frets, layout: store.settings.fretLayout, marks: store.answerMarks,
                           chord: card.result?.voicing, showFingers: false,
                           onTap: card.result == nil ? { store.tap($0) } : nil)
                 .padding(.vertical, 4)

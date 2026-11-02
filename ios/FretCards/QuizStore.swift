@@ -36,7 +36,7 @@ struct Settings: Codable, Equatable {
     var mode = QuizMode.staff
     var minFret = 0
     var maxFret = 12
-    var layout = FretLayout.horizontal
+    var fretLayout = FretLayout.auto
     var accidentals = false
     var sound = SoundMode.guitar
     var instrument = Instrument.guitar
@@ -51,7 +51,7 @@ struct Settings: Codable, Equatable {
         mode = (try? c.decodeIfPresent(QuizMode.self, forKey: .mode)) ?? d.mode
         minFret = (try? c.decodeIfPresent(Int.self, forKey: .minFret)) ?? d.minFret
         maxFret = (try? c.decodeIfPresent(Int.self, forKey: .maxFret)) ?? d.maxFret
-        layout = (try? c.decodeIfPresent(FretLayout.self, forKey: .layout)) ?? d.layout
+        fretLayout = (try? c.decodeIfPresent(FretLayout.self, forKey: .fretLayout)) ?? d.fretLayout
         accidentals = (try? c.decodeIfPresent(Bool.self, forKey: .accidentals)) ?? d.accidentals
         sound = (try? c.decodeIfPresent(SoundMode.self, forKey: .sound)) ?? d.sound
         instrument = (try? c.decodeIfPresent(Instrument.self, forKey: .instrument)) ?? d.instrument

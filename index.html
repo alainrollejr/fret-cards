@@ -317,9 +317,11 @@ summary {
       <div class="group">
         <span class="group-title">Fretboard</span>
         <div class="seg" role="radiogroup" aria-label="Fretboard layout">
+          <label><input type="radio" name="layout" id="layout-auto" value="auto"><span>Auto</span></label>
           <label><input type="radio" name="layout" id="layout-horizontal" value="horizontal"><span>Horizontal</span></label>
           <label><input type="radio" name="layout" id="layout-vertical" value="vertical"><span>Vertical (low E left)</span></label>
         </div>
+        <p class="group-note">Auto runs the neck top to bottom on narrow screens and across when it fits.</p>
       </div>
       <div class="group">
         <span class="group-title">Instrument</span>
@@ -381,7 +383,7 @@ summary {
   const pcOf = (m) => ((m % 12) + 12) % 12;
 
   const defaults = () => ({
-    settings: { mode: 'staff', minFret: 0, maxFret: 12, layout: 'horizontal', acc: false, sound: 'guitar', instrument: 'guitar', chordPlay: 'both' },
+    settings: { mode: 'staff', minFret: 0, maxFret: 12, fretLayout: 'auto', acc: false, sound: 'guitar', instrument: 'guitar', chordPlay: 'both' },
     stats: { right: 0, total: 0, streak: 0, best: 0 },
     w: {},
   });
@@ -759,9 +761,12 @@ summary {
   // Tab orientation. Horizontal: highest string on top, nut on the left. Vertical: low E on the left,
   // nut at the top. Positions along the neck are u, across the strings v; pt() maps them to the drawing.
   function fretSVG({ marks = [], interactive = false, lo = S.settings.minFret, hi = S.settings.maxFret, chord = null, chordKind = '', fingers = true }) {
-    const vert = S.settings.layout === 'vertical';
     const n = OPEN.length, last = n - 1;
     const hasOpen = lo === 0, first = Math.max(1, lo), cells = hi - first + 1;
+    // Auto: across when every fret gets at least ~34px, otherwise top to bottom.
+    const room = ($('answer').clientWidth || 340) - 2;
+    const wideW = (hasOpen ? 56 : 24) + cells * Math.max(40, (340 - (hasOpen ? 56 : 24) - 8) / cells) + 8;
+    const vert = S.settings.fretLayout === 'vertical' || (S.settings.fretLayout === 'auto' && wideW * 0.85 > room);
     const uLabel = vert ? 10 : 8, uStr = vert ? 22 : 16;
     const u0 = vert ? (hasOpen ? 62 : 30) : (hasOpen ? 56 : 24); // nut or first fret wire
     const fw = vert ? 46 : Math.max(40, (340 - u0 - 8) / cells);
@@ -1144,7 +1149,7 @@ summary {
     $('minFret').innerHTML = opts(0, FRET_LIMIT - MIN_SPAN, S.settings.minFret);
     $('maxFret').innerHTML = opts(MIN_SPAN, FRET_LIMIT, S.settings.maxFret);
     document.querySelectorAll('.presets button').forEach((b) => b.classList.toggle('on', b.dataset.range === `${S.settings.minFret}-${S.settings.maxFret}`));
-    $('layout-' + S.settings.layout).checked = true;
+    $('layout-' + S.settings.fretLayout).checked = true;
     $('acc').checked = S.settings.acc;
     $('sound-' + S.settings.sound).checked = true;
     $('chordPlay-' + S.settings.chordPlay).checked = true;
@@ -1170,7 +1175,7 @@ summary {
     setFrets(lo, hi);
   }));
   document.querySelectorAll('input[name="layout"]').forEach((el) => el.addEventListener('change', () => {
-    S.settings.layout = el.value; save(); render();
+    S.settings.fretLayout = el.value; save(); render();
   }));
   $('acc').addEventListener('change', (e) => { S.settings.acc = e.target.checked; save(); newCard(); });
   document.querySelectorAll('input[name="sound"]').forEach((el) => el.addEventListener('change', () => {
@@ -1203,6 +1208,8 @@ summary {
 
   syncSettingsUI();
   newCard();
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => cur && render(), 150); });
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
